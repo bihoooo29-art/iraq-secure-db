@@ -37,7 +37,6 @@ PROVINCES = [
 ]
 
 
-# الكلمات التي يبحث عنها التطبيق تلقائياً
 NAME_KEYS = [
     "name",
     "fullname",
@@ -138,12 +137,10 @@ def find_column(column_names, keywords):
         for keyword in keywords
     ]
 
-    # تطابق مباشر أولاً
     for column, normalized in normalized_columns.items():
         if normalized in normalized_keywords:
             return column
 
-    # ثم تطابق جزئي
     for column, normalized in normalized_columns.items():
         for keyword in normalized_keywords:
             if keyword and (
@@ -764,7 +761,6 @@ def main(page: ft.Page):
                 FAMILY_KEYS,
             )
 
-            # نبحث أولاً في عمود الاسم إذا تم اكتشافه.
             rows = []
 
             if name_column:
@@ -775,7 +771,6 @@ def main(page: ft.Page):
                     [f"%{keyword}%"],
                 ).fetchall()
 
-            # إذا لم نجد نتائج بالاسم، نبحث في كل الأعمدة.
             if not rows:
                 conditions = " OR ".join(
                     f'CAST("{column}" AS TEXT) LIKE ?'
@@ -855,9 +850,6 @@ def main(page: ft.Page):
                 "خطأ",
                 str(error),
             )
-
-        # لا نغلق الاتصال هنا، لأن أزرار جلب العائلة
-        # تحتاج الاتصال عند الضغط عليها.
 
     # الخلفية
     background = ft.Image(
@@ -948,7 +940,7 @@ def main(page: ft.Page):
     result_header = ft.Row(
         [
             ft.Icon(
-                ft.Icons.DATABASE,
+                ft.Icons.STORAGE,
                 color="#54ff82",
             ),
             ft.Text(
