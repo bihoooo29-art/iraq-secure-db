@@ -1,212 +1,467 @@
-
 import os
 import sqlite3
+from pathlib import Path
+
 import requests
 import flet as ft
 
-# مسار تخزين قواعد البيانات في الهاتف
-DB_DIR = "." 
 
-# رابط الإصدار على غيت هب
-GITHUB_RELEASE_URL = "https://github.com/bihoooo29-art/iraq-db-app/releases/download/v1.0.0"
+GITHUB_RELEASE_URL = (
+    "https://github.com/bihoooo29-art/iraq-db-app/releases/download/v1.0.0"
+)
+
+DB_DIR = Path(os.getenv("FLET_APP_STORAGE_DATA", "."))
+DB_DIR.mkdir(parents=True, exist_ok=True)
+
+
+PROVINCES = [
+    ("baghdad", "بغداد"),
+    ("basrah", "البصرة"),
+    ("ninawa", "نينوى"),
+    ("erbil", "أربيل"),
+    ("sulaymaniyah", "السليمانية"),
+    ("kirkuk", "كركوك"),
+    ("najaf", "النجف الأشرف"),
+    ("karbalaa", "كربلاء المقدسة"),
+    ("babylon", "بابل"),
+    ("alanbar", "الأنبار"),
+    ("dhiqar", "ذي قار"),
+    ("duhok", "دهوك"),
+    ("diyala", "ديالى"),
+    ("mesan", "ميسان"),
+    ("muthana", "المثنى"),
+    ("qadisiya", "القادسية"),
+    ("salahaldeen", "صلاح الدين"),
+    ("wasit", "واسط"),
+    ("balad", "بلد"),
+]
+
+
+def download_database(db_name, status):
+    db_path = DB_DIR / db_name
+
+    if db_path.exists():
+        return db_path
+
+    status.value = f"جاري تحميل {db_name}..."
+    status.update()
+
+    url = f"{GITHUB_RELEASE_URL}/{db_name}"
+
+    try:
+        response = requests.get(url, stream=True, timeout=60)
+        response.raise_for_status()
+
+        with open(db_path, "wb") as file:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    file.write(chunk)
+
+        return db_path
+
+    except Exception as e:
+        if db_path.exists():
+            db_path.unlink()
+
+        raise Exception(f"فشل تحميل قاعدة البيانات: {e}")
+
 
 def main(page: ft.Page):
-    page.title = "منظومة بيانات العراق - @UB_515"
+    page.title = "منظومة بيانات العراق"
     page.rtl = True
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.theme_mode = ft.ThemeMode.DARK
+    page.padding = 0
+    page.bgcolor = "#050806"
 
-    provinces = [
-        {"key": "baghdad", "text": "بغداد"},
-        {"key": "basrah", "text": "البصرة"},
-        {"key": "ninawa", "text": "نينوى"},
-        {"key": "erbil", "text": "أربيل"},
-        {"key": "sulaymaniyah", "text": "السليمانية"},
-        {"key": "kirkuk", "text": "كركوك"},
-        {"key": "najaf", "text": "النجف الأشرف"},
-        {"key": "karbalaa", "text": "كربلاء المقدسة"},
-        {"key": "babylon", "text": "بابل"},
-        {"key": "alanbar", "text": "الأنبار"},
-        {"key": "dhiqar", "text": "ذي قار"},
-        {"key": "duhok", "text": "دهوك"},
-        {"key": "diyala", "text": "ديالى"},
-        {"key": "mesan", "text": "ميسان"},
-        {"key": "muthana", "text": "المثنى"},
-        {"key": "qadisiya", "text": "القادسية"},
-        {"key": "sahaldeen", "text": "صلاح الدين"},
-        {"key": "wasit", "text": "واسط"},
-        {"key": "balad", "text": "بلد"}
-    ]
-
-    selected_province = ft.Dropdown(
-        label="اختر المحافظة المستهدفة",
-        hint_text="اختر المحافظة للبحث في بياناتها",
-        options=[ft.dropdown.Option(key=p["key"], text=p["text"]) for p in provinces],
-        width=340,
-        border_color=ft.colors.GREEN_400,
-        focused_border_color=ft.colors.GREEN_ACCENT,
-        label_style=ft.TextStyle(color=ft.colors.GREEN_300)
+    status = ft.Text(
+        "جاهز للبحث",
+        size=13,
+        color="#72ff9b",
+        text_align=ft.TextAlign.CENTER,
     )
 
-    search_box = ft.TextField(
-        label="كلمة البحث (الاسم، الرقم، أو المعرف...)",
-        hint_text="اكتب للبحث داخل قاعدة البيانات...",
-        width=340,
-        rtl=True,
-        border_color=ft.colors.GREEN_400,
-        focused_border_color=ft.colors.GREEN_ACCENT,
-        label_style=ft.TextStyle(color=ft.colors.GREEN_300)
+    results = ft.Column(
+        spacing=10,
+        scroll=ft.ScrollMode.AUTO,
     )
 
-    results_list = ft.ListView(expand=1, spacing=12, padding=15, auto_scroll=True)
+    province_dropdown = ft.Dropdown(
+        label="اختر المحافظة",
+        hint_text="اختر المحافظة",
+        options=[
+            ft.dropdown.Option(key, text)
+            for key, text in PROVINCES
+        ],
+        border_color="#26d95b",
+        focused_border_color="#54ff82",
+        label_style=ft.TextStyle(color="#7dff9e"),
+        text_style=ft.TextStyle(color="white"),
+        bgcolor="#101711",
+        filled=True,
+    )
+
+    search_field = ft.TextField(
+        label="كلمة البحث",
+        hint_text="اكتب الاسم أو الرقم أو أي معلومة...",
+        border_color="#26d95b",
+        focused_border_color="#54ff82",
+        label_style=ft.TextStyle(color="#7dff9e"),
+        text_style=ft.TextStyle(color="white"),
+        cursor_color="#54ff82",
+        bgcolor="#101711",
+        filled=True,
+        prefix_icon=ft.Icons.SEARCH,
+    )
+
+    def show_message(title, message):
+        dialog = ft.AlertDialog(
+            title=ft.Text(title, color="#70ff96"),
+            content=ft.Text(
+                message,
+                color="white",
+                text_align=ft.TextAlign.RIGHT,
+            ),
+            actions=[
+                ft.TextButton(
+                    "إغلاق",
+                    on_click=lambda e: close_dialog(dialog),
+                )
+            ],
+        )
+
+        page.dialog = dialog
+        dialog.open = True
+        page.update()
+
+    def close_dialog(dialog):
+        dialog.open = False
+        page.update()
+
+    def show_instructions(e):
+        dialog = ft.AlertDialog(
+            title=ft.Row(
+                [
+                    ft.Icon(ft.Icons.INFO_OUTLINE, color="#45ff78"),
+                    ft.Text("تعليمات", color="#70ff96"),
+                ]
+            ),
+            content=ft.Text(
+                "تم تطوير بواسطة هاشم ❤️\n\n"
+                "أي شي تحتاجونه من برمجة تعال بس لا تجي وجيبك فارغ هههههه 😂",
+                color="white",
+                size=16,
+                text_align=ft.TextAlign.RIGHT,
+            ),
+            actions=[
+                ft.TextButton(
+                    "إغلاق",
+                    on_click=lambda e: close_dialog(dialog),
+                )
+            ],
+        )
+
+        page.dialog = dialog
+        dialog.open = True
+        page.update()
+
+    def open_developer(e):
+        page.launch_url("https://t.me/UB_515")
 
     def search_data(e):
-        province_val = selected_province.value
-        if not province_val:
-            results_list.controls.clear()
-            results_list.controls.append(
-                ft.Text("⚠️ يرجى اختيار المحافظة أولاً قبل البدء بالبحث!", color=ft.colors.RED_400, weight=ft.FontWeight.BOLD)
-            )
-            page.update()
+        results.controls.clear()
+        page.update()
+
+        province = province_dropdown.value
+        keyword = search_field.value.strip()
+
+        if not province:
+            show_message("تنبيه", "يرجى اختيار المحافظة أولاً.")
             return
 
-        db_name = f"{province_val}.db"
-        db_path = os.path.join(DB_DIR, db_name)
-
-        if not os.path.exists(db_path):
-            try:
-                results_list.controls.clear()
-                results_list.controls.append(
-                    ft.Text(f"📥 قاعدة البيانات غير موجودة محلياً. جاري تحميل ({db_name}) من السحاب لأول مرة...", color=ft.colors.YELLOW)
-                )
-                page.update()
-
-                download_url = f"{GITHUB_RELEASE_URL}/{db_name}"
-                response = requests.get(download_url, stream=True)
-                
-                if response.status_code == 200:
-                    with open(db_path, "wb") as f:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            if chunk:
-                                f.write(chunk)
-                else:
-                    results_list.controls.clear()
-                    results_list.controls.append(
-                        ft.Text(f"❌ فشل التحميل من السحاب. رمز الخطأ: {response.status_code}", color=ft.colors.RED_400)
-                    )
-                    page.update()
-                    return
-            except Exception as dl_ex:
-                results_list.controls.clear()
-                results_list.controls.append(
-                    ft.Text(f"❌ حدث خطأ أثناء تحميل الملف: {dl_ex}", color=ft.colors.RED_400)
-                )
-                page.update()
-                return
+        db_name = f"{province}.db"
 
         try:
-            results_list.controls.clear()
-            results_list.controls.append(ft.Text("🔄 جاري البحث في قواعد البيانات...", color=ft.colors.YELLOW))
-            page.update()
+            db_path = download_database(db_name, status)
 
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = cursor.fetchall()
-            
+            status.value = "جاري البحث..."
+            status.update()
+
+            connection = sqlite3.connect(
+                str(db_path),
+                check_same_thread=False,
+            )
+
+            cursor = connection.cursor()
+
+            tables = cursor.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+
             if not tables:
-                results_list.controls.clear()
-                results_list.controls.append(ft.Text("⚠️ قاعدة البيانات الحالية فارغة أو لا تحتوي على جدول رئيسي.", color=ft.colors.YELLOW))
-                conn.close()
-                page.update()
+                connection.close()
+                show_message("خطأ", "لم يتم العثور على جدول داخل قاعدة البيانات.")
                 return
 
             table_name = tables[0][0]
-            query_text = search_box.value.strip()
 
-            cursor.execute(f"PRAGMA table_info(`{table_name}`);")
-            columns_info = cursor.fetchall()
-            column_names = [col[1] for col in columns_info]
+            columns = cursor.execute(
+                f'PRAGMA table_info("{table_name}")'
+            ).fetchall()
 
-            if query_text:
-                where_clause = " OR ".join([f"`{col}` LIKE ?" for col in column_names])
-                sql = f"SELECT * FROM `{table_name}` WHERE {where_clause} LIMIT 100;"
-                params = [f"%{query_text}%" for _ in column_names]
-                cursor.execute(sql, params)
+            column_names = [column[1] for column in columns]
+
+            if not column_names:
+                connection.close()
+                show_message("خطأ", "لم يتم العثور على أعمدة في قاعدة البيانات.")
+                return
+
+            if keyword:
+                conditions = " OR ".join(
+                    f'CAST("{column}" AS TEXT) LIKE ?'
+                    for column in column_names
+                )
+
+                query = (
+                    f'SELECT * FROM "{table_name}" '
+                    f"WHERE {conditions} LIMIT 100"
+                )
+
+                params = [f"%{keyword}%"] * len(column_names)
+
+                rows = cursor.execute(query, params).fetchall()
+
             else:
-                cursor.execute(f"SELECT * FROM `{table_name}` LIMIT 50;")
+                rows = cursor.execute(
+                    f'SELECT * FROM "{table_name}" LIMIT 50'
+                ).fetchall()
 
-            rows = cursor.fetchall()
-            conn.close()
+            connection.close()
 
-            results_list.controls.clear()
-            
             if not rows:
-                results_list.controls.append(
-                    ft.Text("🔍 لم يتم العثور على أي نتائج مطابقة للبحث.", color=ft.colors.YELLOW_ACCENT)
-                )
-            else:
-                results_list.controls.append(
-                    ft.Text(f"✅ تم العثور على ({len(rows)}) نتيجة:", color=ft.colors.GREEN_ACCENT, weight=ft.FontWeight.BOLD)
-                )
-                
-                for row in rows:
-                    formatted_data = "\n".join([f"{column_names[i]}: {row[i]}" for i in range(len(row)) if row[i] is not None])
-                    
-                    results_list.controls.append(
-                        ft.Card(
-                            content=ft.Container(
-                                content=ft.Column([
-                                    ft.Text(formatted_data, rtl=True, color=ft.colors.GREEN_200, size=13),
-                                ]),
-                                padding=12,
-                                bgcolor=ft.colors.BLACK54
-                            ),
-                            elevation=5
-                        )
+                results.controls.append(
+                    ft.Container(
+                        padding=20,
+                        content=ft.Column(
+                            [
+                                ft.Icon(
+                                    ft.Icons.SEARCH_OFF,
+                                    size=45,
+                                    color="#58ff85",
+                                ),
+                                ft.Text(
+                                    "لم يتم العثور على نتائج",
+                                    size=18,
+                                    color="white",
+                                    text_align=ft.TextAlign.CENTER,
+                                ),
+                            ],
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
                     )
+                )
+
+                status.value = "انتهى البحث — لا توجد نتائج"
+                page.update()
+                return
+
+            for index, row in enumerate(rows, start=1):
+                data_text = []
+
+                for column, value in zip(column_names, row):
+                    if value is not None and str(value).strip():
+                        data_text.append(
+                            f"{column}: {value}"
+                        )
+
+                results.controls.append(
+                    ft.Container(
+                        padding=15,
+                        border=ft.border.all(1, "#1fbd4d"),
+                        border_radius=12,
+                        bgcolor="#0b120d",
+                        content=ft.Column(
+                            [
+                                ft.Row(
+                                    [
+                                        ft.Icon(
+                                            ft.Icons.FINGERPRINT,
+                                            color="#54ff82",
+                                        ),
+                                        ft.Text(
+                                            f"نتيجة رقم {index}",
+                                            color="#72ff9b",
+                                            size=16,
+                                            weight=ft.FontWeight.BOLD,
+                                        ),
+                                    ],
+                                ),
+                                ft.Divider(color="#1c6d34"),
+                                ft.Text(
+                                    "\n".join(data_text),
+                                    color="white",
+                                    size=14,
+                                    selectable=True,
+                                ),
+                            ],
+                            spacing=8,
+                        ),
+                    )
+                )
+
+            status.value = f"تم العثور على {len(rows)} نتيجة"
             page.update()
 
-        except Exception as ex:
-            results_list.controls.clear()
-            results_list.controls.append(
-                ft.Text(f"❌ حدث خطأ تقني أثناء الاستعلام: {ex}", color=ft.colors.RED_400)
-            )
+        except Exception as error:
+            status.value = "حدث خطأ"
             page.update()
+            show_message("خطأ", str(error))
 
-    search_button = ft.ElevatedButton(
-        text="بدء البحث الشامل", 
-        icon=ft.icons.SEARCH, 
-        on_click=search_data,
-        width=340,
-        color=ft.colors.BLACK,
-        bgcolor=ft.colors.GREEN_ACCENT
+    # خلفية البرنامج
+    background = ft.Image(
+        src="bg.jpg",
+        expand=True,
+        fit=ft.ImageFit.COVER,
     )
 
-    developer_button = ft.TextButton(
-        text="المطور: اضغط هنا للتواصل (@UB_515)",
-        icon=ft.icons.CODE,
-        on_click=lambda _: page.launch_url("https://t.me/UB_515")
+    dark_overlay = ft.Container(
+        expand=True,
+        bgcolor="#D9050806",
+    )
+
+    header = ft.Column(
+        [
+            ft.Container(
+                padding=10,
+                content=ft.Icon(
+                    ft.Icons.SHIELD,
+                    size=58,
+                    color="#4dff7c",
+                ),
+            ),
+            ft.Text(
+                "منظومة بيانات العراق",
+                size=28,
+                weight=ft.FontWeight.BOLD,
+                color="white",
+                text_align=ft.TextAlign.CENTER,
+            ),
+            ft.Text(
+                "نظام البحث الشامل في قواعد البيانات",
+                size=13,
+                color="#72ff9b",
+                text_align=ft.TextAlign.CENTER,
+            ),
+        ],
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        spacing=3,
+    )
+
+    search_button = ft.ElevatedButton(
+        "بدء البحث الشامل",
+        icon=ft.Icons.SEARCH,
+        on_click=search_data,
+        height=52,
+        style=ft.ButtonStyle(
+            bgcolor="#15943a",
+            color="white",
+            shape=ft.RoundedRectangleBorder(radius=12),
+        ),
+    )
+
+    buttons = ft.Row(
+        [
+            ft.OutlinedButton(
+                "المطور",
+                icon=ft.Icons.CODE,
+                on_click=open_developer,
+                style=ft.ButtonStyle(
+                    color="#70ff96",
+                    side=ft.BorderSide(1, "#26d95b"),
+                ),
+            ),
+            ft.OutlinedButton(
+                "تعليمات",
+                icon=ft.Icons.INFO_OUTLINE,
+                on_click=show_instructions,
+                style=ft.ButtonStyle(
+                    color="#70ff96",
+                    side=ft.BorderSide(1, "#26d95b"),
+                ),
+            ),
+        ],
+        alignment=ft.MainAxisAlignment.CENTER,
+    )
+
+    result_header = ft.Row(
+        [
+            ft.Icon(
+                ft.Icons.DATABASE,
+                color="#54ff82",
+            ),
+            ft.Text(
+                "سجل النتائج والبيانات المستخرجة",
+                size=19,
+                weight=ft.FontWeight.BOLD,
+                color="white",
+            ),
+        ],
+        alignment=ft.MainAxisAlignment.CENTER,
+    )
+
+    # صورة bg.jpg تظهر أيضاً فوق قسم النتائج
+    result_image = ft.Container(
+        height=150,
+        border_radius=12,
+        clip_behavior=ft.ClipBehavior.HARD_EDGE,
+        content=ft.Image(
+            src="bg.jpg",
+            width=float("inf"),
+            height=150,
+            fit=ft.ImageFit.COVER,
+        ),
+    )
+
+    panel = ft.Container(
+        expand=True,
+        margin=12,
+        padding=18,
+        border_radius=20,
+        bgcolor="#CC070C09",
+        border=ft.border.all(1, "#1b8f3b"),
+        content=ft.Column(
+            [
+                header,
+                ft.Divider(color="#1b8f3b"),
+                province_dropdown,
+                search_field,
+                search_button,
+                buttons,
+                status,
+                ft.Divider(color="#1b8f3b"),
+                result_header,
+                result_image,
+                results,
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+            spacing=12,
+            scroll=ft.ScrollMode.AUTO,
+        ),
     )
 
     page.add(
-        ft.Column([
-            ft.Row([
-                ft.Icon(ft.icons.SECURITY, color=ft.colors.GREEN_ACCENT, size=28),
-                ft.Text("منظومة بيانات العراق الأمنية", size=20, weight=ft.FontWeight.BOLD, color=ft.colors.GREEN_ACCENT),
-            ], alignment=ft.MainAxisAlignment.CENTER),
-            ft.Divider(color=ft.colors.GREEN_800),
-            selected_province,
-            search_box,
-            search_button,
-            developer_button,
-            ft.Divider(color=ft.colors.GREEN_800),
-            ft.Text("سجل النتائج والبيانات المسترجعة:", weight=ft.FontWeight.BOLD, color=ft.colors.WHITE70, size=12),
-            results_list
-        ], alignment=ft.MainAxisAlignment.START, horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True)
+        ft.Stack(
+            [
+                background,
+                dark_overlay,
+                ft.SafeArea(
+                    expand=True,
+                    content=panel,
+                ),
+            ],
+            expand=True,
+        )
     )
 
-# تم تصحيح السطر الأخير هنا ليعمل بسلاسة تامة
-ft.app(target=main)
+
+ft.run(main, assets_dir=".")
