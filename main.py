@@ -6,15 +6,10 @@ import requests
 import flet as ft
 
 
-# =========================================================
-# إعدادات التطبيق
-# =========================================================
-
 GITHUB_RELEASE_URL = (
     "https://github.com/bihoooo29-art/iraq-db-app/releases/download/v1.0.0"
 )
 
-# تخزين قواعد البيانات داخل مساحة التطبيق في Android
 DB_DIR = Path(os.getenv("FLET_APP_STORAGE_DATA", "."))
 DB_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -31,10 +26,6 @@ FIELD_BG = "#101711"
 CARD_BG = "#0b120d"
 DARK_BG = "#050806"
 
-
-# =========================================================
-# المحافظات
-# =========================================================
 
 PROVINCES = [
     ("baghdad", "بغداد"),
@@ -58,10 +49,6 @@ PROVINCES = [
     ("balad", "بلد"),
 ]
 
-
-# =========================================================
-# أسماء الحقول المحتملة
-# =========================================================
 
 NAME_KEYS = [
     "name",
@@ -137,10 +124,6 @@ SEQUENCE_KEYS = [
 ]
 
 
-# =========================================================
-# أدوات مساعدة
-# =========================================================
-
 def normalize_text(value):
     if value is None:
         return ""
@@ -166,9 +149,6 @@ def normalize_text(value):
 
 
 def quote_identifier(value):
-    """
-    حماية أسماء الجداول والأعمدة عند وضعها داخل SQL.
-    """
     return '"' + str(value).replace('"', '""') + '"'
 
 
@@ -183,12 +163,10 @@ def find_column(column_names, keywords):
         for keyword in keywords
     ]
 
-    # تطابق كامل
     for column, normalized in normalized_columns.items():
         if normalized in normalized_keywords:
             return column
 
-    # تطابق جزئي
     for column, normalized in normalized_columns.items():
         for keyword in normalized_keywords:
             if keyword and (
@@ -222,10 +200,6 @@ def is_numeric_text(value):
 
     return text.isdigit()
 
-
-# =========================================================
-# اكتشاف أفضل جدول
-# =========================================================
 
 def find_best_table(cursor):
     tables = cursor.execute(
@@ -291,10 +265,6 @@ def find_best_table(cursor):
     return best_table, best_columns
 
 
-# =========================================================
-# تحميل قاعدة البيانات من GitHub Releases
-# =========================================================
-
 def download_database(db_name, status):
     db_path = DB_DIR / db_name
 
@@ -305,7 +275,6 @@ def download_database(db_name, status):
     status.update()
 
     url = f"{GITHUB_RELEASE_URL}/{db_name}"
-
     temp_path = DB_DIR / f"{db_name}.download"
 
     try:
@@ -346,24 +315,12 @@ def download_database(db_name, status):
         )
 
 
-# =========================================================
-# البحث داخل SQLite
-# =========================================================
-
 def search_database(
     connection,
     table_name,
     column_names,
     keyword,
 ):
-    """
-    البحث الذكي:
-    1. الاسم
-    2. رقم التموينية
-    3. الحقول المهمة
-    4. جميع الحقول كحل أخير
-    """
-
     table_sql = quote_identifier(table_name)
     keyword = str(keyword).strip()
 
@@ -371,10 +328,6 @@ def search_database(
 
     name_column = detected["name"]
     family_column = detected["family"]
-
-    # -----------------------------------------------------
-    # البحث بالاسم
-    # -----------------------------------------------------
 
     if name_column:
         column_sql = quote_identifier(name_column)
@@ -393,10 +346,6 @@ def search_database(
         if rows:
             return rows
 
-    # -----------------------------------------------------
-    # البحث برقم التموينية
-    # -----------------------------------------------------
-
     if family_column:
         family_sql = quote_identifier(family_column)
 
@@ -413,8 +362,6 @@ def search_database(
         if rows:
             return rows
 
-        # إذا كان الرقم يحتوي أصفاراً بالبداية
-        # وSQLite مخزنه كرقم صحيح
         if is_numeric_text(keyword):
             numeric_value = int(keyword)
 
@@ -430,10 +377,6 @@ def search_database(
 
             if rows:
                 return rows
-
-    # -----------------------------------------------------
-    # البحث في الحقول المهمة فقط
-    # -----------------------------------------------------
 
     important_columns = []
 
@@ -473,10 +416,6 @@ def search_database(
         if rows:
             return rows
 
-    # -----------------------------------------------------
-    # بحث شامل في جميع الأعمدة
-    # -----------------------------------------------------
-
     conditions = " OR ".join(
         f"CAST({quote_identifier(column)} AS TEXT) LIKE ?"
         for column in column_names
@@ -499,25 +438,13 @@ def search_database(
     ).fetchall()
 
 
-# =========================================================
-# التطبيق
-# =========================================================
-
 def main(page: ft.Page):
-
-    # -----------------------------------------------------
-    # إعداد الصفحة
-    # -----------------------------------------------------
 
     page.title = "منظومة بيانات العراق"
     page.rtl = True
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 0
     page.bgcolor = DARK_BG
-
-    # -----------------------------------------------------
-    # حالة البحث
-    # -----------------------------------------------------
 
     status = ft.Text(
         "جاهز للبحث",
@@ -531,43 +458,19 @@ def main(page: ft.Page):
         scroll=ft.ScrollMode.AUTO,
     )
 
-    # -----------------------------------------------------
-    # نمط حدود الحقول - Flet الحديث
-    # -----------------------------------------------------
-
-    field_border = {
-        ft.ControlState.DEFAULT: ft.OutlineInputBorder(
-            border_radius=10,
-            side=ft.BorderSide(
-                width=1,
-                color=GREEN,
-            ),
-        ),
-        ft.ControlState.FOCUSED: ft.OutlineInputBorder(
-            border_radius=10,
-            side=ft.BorderSide(
-                width=2,
-                color=GREEN_BRIGHT,
-            ),
-        ),
-    }
-
-    # -----------------------------------------------------
-    # اختيار المحافظة
-    # -----------------------------------------------------
-
     province_dropdown = ft.Dropdown(
         label="اختر المحافظة",
         hint_text="اختر المحافظة",
         value="baghdad",
         options=[
-            ft.DropdownOption(
-                key=key,
-                text=name,
+            ft.dropdown.Option(
+                key,
+                name,
             )
             for key, name in PROVINCES
         ],
-        border=field_border,
+        border_color=GREEN,
+        focused_border_color=GREEN_BRIGHT,
         label_style=ft.TextStyle(
             color="#7dff9e"
         ),
@@ -578,17 +481,14 @@ def main(page: ft.Page):
         filled=True,
     )
 
-    # -----------------------------------------------------
-    # حقل البحث
-    # -----------------------------------------------------
-
     search_field = ft.TextField(
         label="كلمة البحث",
         hint_text=(
             "الاسم الثلاثي أو الثنائي، "
             "الرقم أو المعرف..."
         ),
-        border=field_border,
+        border_color=GREEN,
+        focused_border_color=GREEN_BRIGHT,
         label_style=ft.TextStyle(
             color="#7dff9e"
         ),
@@ -601,13 +501,10 @@ def main(page: ft.Page):
         prefix_icon=ft.Icons.SEARCH,
     )
 
-    # =====================================================
-    # النوافذ المنبثقة
-    # =====================================================
-
     def close_dialog(e=None):
-        page.pop_dialog()
-        page.update()
+        if page.dialog:
+            page.dialog.open = False
+            page.update()
 
     def show_message(title, message):
 
@@ -626,17 +523,15 @@ def main(page: ft.Page):
             ),
             actions=[
                 ft.TextButton(
-                    content="إغلاق",
+                    "إغلاق",
                     on_click=close_dialog,
                 )
             ],
         )
 
-        page.show_dialog(dialog)
-
-    # -----------------------------------------------------
-    # التعليمات
-    # -----------------------------------------------------
+        page.dialog = dialog
+        dialog.open = True
+        page.update()
 
     def show_instructions(e):
 
@@ -670,22 +565,19 @@ def main(page: ft.Page):
             ),
             actions=[
                 ft.TextButton(
-                    content="إغلاق",
+                    "إغلاق",
                     on_click=close_dialog,
                 )
             ],
         )
 
-        page.show_dialog(dialog)
+        page.dialog = dialog
+        dialog.open = True
+        page.update()
 
-    # -----------------------------------------------------
-    # المطور
-    # -----------------------------------------------------
-
-    async def open_developer(e):
+    def open_developer(e):
         try:
-            launcher = ft.UrlLauncher()
-            await launcher.launch_url(
+            page.launch_url(
                 "https://t.me/UB_515"
             )
         except Exception as error:
@@ -693,10 +585,6 @@ def main(page: ft.Page):
                 "تعذر فتح الرابط",
                 str(error),
             )
-
-    # =====================================================
-    # عرض أفراد العائلة
-    # =====================================================
 
     def make_family_view(
         db_path,
@@ -729,7 +617,6 @@ def main(page: ft.Page):
 
             value_text = str(family_value).strip()
 
-            # البحث أولاً كنص
             rows = connection.execute(
                 f"""
                 SELECT *
@@ -740,7 +627,6 @@ def main(page: ft.Page):
                 [value_text],
             ).fetchall()
 
-            # إذا كان الرقم مخزناً كرقم بدون الأصفار
             if not rows and is_numeric_text(value_text):
                 rows = connection.execute(
                     f"""
@@ -863,7 +749,7 @@ def main(page: ft.Page):
             family_results.controls.append(
                 ft.Container(
                     padding=12,
-                    border=ft.Border.all(
+                    border=ft.border.all(
                         1,
                         "#176c31",
                     ),
@@ -881,7 +767,7 @@ def main(page: ft.Page):
 
         family_results.controls.append(
             ft.Container(
-                margin=ft.Margin(top=5),
+                margin=ft.margin.only(top=5),
                 padding=12,
                 border_radius=10,
                 bgcolor="#102016",
@@ -896,10 +782,6 @@ def main(page: ft.Page):
         )
 
         return family_results
-
-    # =====================================================
-    # نافذة العائلة
-    # =====================================================
 
     def show_family(
         db_path,
@@ -945,17 +827,15 @@ def main(page: ft.Page):
             ),
             actions=[
                 ft.TextButton(
-                    content="إغلاق",
+                    "إغلاق",
                     on_click=close_dialog,
                 )
             ],
         )
 
-        page.show_dialog(dialog)
-
-    # =====================================================
-    # بطاقة النتيجة
-    # =====================================================
+        page.dialog = dialog
+        dialog.open = True
+        page.update()
 
     def create_result_card(
         db_path,
@@ -1054,7 +934,7 @@ def main(page: ft.Page):
             )
 
             family_button = ft.OutlinedButton(
-                content="جلب العائلة",
+                "جلب العائلة",
                 icon=ft.Icons.GROUP,
                 on_click=lambda e,
                 dp=db_path,
@@ -1071,22 +951,22 @@ def main(page: ft.Page):
                 style=ft.ButtonStyle(
                     color=GREEN_LIGHT,
                     side=ft.BorderSide(
-                        width=1,
-                        color=GREEN,
+                        1,
+                        GREEN,
                     ),
                 ),
             )
 
             info_controls.append(
                 ft.Container(
-                    margin=ft.Margin(top=5),
+                    margin=ft.margin.only(top=5),
                     content=family_button,
                 )
             )
 
         return ft.Container(
             padding=15,
-            border=ft.Border.all(
+            border=ft.border.all(
                 1,
                 "#1fbd4d",
             ),
@@ -1098,10 +978,6 @@ def main(page: ft.Page):
             ),
         )
 
-    # =====================================================
-    # تنفيذ البحث
-    # =====================================================
-
     def search_data(e):
 
         results.controls.clear()
@@ -1110,15 +986,12 @@ def main(page: ft.Page):
         page.update()
 
         province = province_dropdown.value
+
         keyword = (
             search_field.value.strip()
             if search_field.value
             else ""
         )
-
-        # -------------------------------------------------
-        # التحقق
-        # -------------------------------------------------
 
         if not province:
             status.value = "يرجى اختيار المحافظة"
@@ -1146,10 +1019,6 @@ def main(page: ft.Page):
 
         try:
 
-            # -------------------------------------------------
-            # تحميل القاعدة
-            # -------------------------------------------------
-
             db_path = download_database(
                 db_name,
                 status,
@@ -1158,25 +1027,16 @@ def main(page: ft.Page):
             status.value = "جاري فتح قاعدة البيانات..."
             page.update()
 
-            # -------------------------------------------------
-            # فتح SQLite
-            # -------------------------------------------------
-
             connection = sqlite3.connect(
                 str(db_path),
                 check_same_thread=False,
             )
 
-            # تحسين القراءة
             connection.execute(
                 "PRAGMA query_only = ON"
             )
 
             cursor = connection.cursor()
-
-            # -------------------------------------------------
-            # اكتشاف الجدول
-            # -------------------------------------------------
 
             table_name, column_names = find_best_table(
                 cursor
@@ -1190,20 +1050,12 @@ def main(page: ft.Page):
             status.value = "جاري البحث..."
             page.update()
 
-            # -------------------------------------------------
-            # البحث
-            # -------------------------------------------------
-
             rows = search_database(
                 connection,
                 table_name,
                 column_names,
                 keyword,
             )
-
-            # -------------------------------------------------
-            # لا توجد نتائج
-            # -------------------------------------------------
 
             if not rows:
 
@@ -1237,10 +1089,6 @@ def main(page: ft.Page):
 
                 page.update()
                 return
-
-            # -------------------------------------------------
-            # عرض النتائج
-            # -------------------------------------------------
 
             for index, row in enumerate(
                 rows,
@@ -1281,10 +1129,6 @@ def main(page: ft.Page):
                 except Exception:
                     pass
 
-    # =====================================================
-    # الخلفية
-    # =====================================================
-
     background = ft.Image(
         src=BACKGROUND_IMAGE,
         expand=True,
@@ -1296,10 +1140,6 @@ def main(page: ft.Page):
         bgcolor="#D9050806",
     )
 
-    # =====================================================
-    # الهيدر
-    # =====================================================
-
     header = ft.Column(
         [
             ft.Container(
@@ -1310,7 +1150,6 @@ def main(page: ft.Page):
                     color="#4dff7c",
                 ),
             ),
-
             ft.Text(
                 "منظومة بيانات العراق",
                 size=28,
@@ -1318,7 +1157,6 @@ def main(page: ft.Page):
                 color="white",
                 text_align=ft.TextAlign.CENTER,
             ),
-
             ft.Text(
                 "نظام البحث الشامل في قواعد البيانات",
                 size=13,
@@ -1332,12 +1170,8 @@ def main(page: ft.Page):
         spacing=3,
     )
 
-    # =====================================================
-    # زر البحث الرئيسي
-    # =====================================================
-
-    search_button = ft.Button(
-        content="بدء البحث الشامل",
+    search_button = ft.ElevatedButton(
+        "بدء البحث الشامل",
         icon=ft.Icons.SEARCH,
         on_click=search_data,
         height=52,
@@ -1350,34 +1184,29 @@ def main(page: ft.Page):
         ),
     )
 
-    # =====================================================
-    # أزرار المطور والتعليمات
-    # =====================================================
-
     buttons = ft.Row(
         [
             ft.OutlinedButton(
-                content="المطور",
+                "المطور",
                 icon=ft.Icons.CODE,
                 on_click=open_developer,
                 style=ft.ButtonStyle(
                     color=GREEN_LIGHT,
                     side=ft.BorderSide(
-                        width=1,
-                        color=GREEN,
+                        1,
+                        GREEN,
                     ),
                 ),
             ),
-
             ft.OutlinedButton(
-                content="تعليمات",
+                "تعليمات",
                 icon=ft.Icons.INFO_OUTLINE,
                 on_click=show_instructions,
                 style=ft.ButtonStyle(
                     color=GREEN_LIGHT,
                     side=ft.BorderSide(
-                        width=1,
-                        color=GREEN,
+                        1,
+                        GREEN,
                     ),
                 ),
             ),
@@ -1385,17 +1214,12 @@ def main(page: ft.Page):
         alignment=ft.MainAxisAlignment.CENTER,
     )
 
-    # =====================================================
-    # عنوان النتائج
-    # =====================================================
-
     result_header = ft.Row(
         [
             ft.Icon(
                 ft.Icons.STORAGE,
                 color=GREEN_BRIGHT,
             ),
-
             ft.Text(
                 "سجل النتائج والبيانات المستخرجة",
                 size=19,
@@ -1405,10 +1229,6 @@ def main(page: ft.Page):
         ],
         alignment=ft.MainAxisAlignment.CENTER,
     )
-
-    # =====================================================
-    # صورة الجوكر أسفل النتائج
-    # =====================================================
 
     result_image = ft.Container(
         height=150,
@@ -1422,46 +1242,32 @@ def main(page: ft.Page):
         ),
     )
 
-    # =====================================================
-    # اللوحة الرئيسية
-    # =====================================================
-
     panel = ft.Container(
         expand=True,
         margin=12,
         padding=18,
         border_radius=20,
         bgcolor=PANEL_BG,
-        border=ft.Border.all(
+        border=ft.border.all(
             1,
             GREEN_DARK,
         ),
         content=ft.Column(
             [
                 header,
-
                 ft.Divider(
                     color=GREEN_DARK
                 ),
-
                 province_dropdown,
-
                 search_field,
-
                 search_button,
-
                 buttons,
-
                 status,
-
                 ft.Divider(
                     color=GREEN_DARK
                 ),
-
                 result_header,
-
                 results,
-
                 result_image,
             ],
             horizontal_alignment=(
@@ -1472,16 +1278,11 @@ def main(page: ft.Page):
         ),
     )
 
-    # =====================================================
-    # تشغيل الواجهة
-    # =====================================================
-
     page.add(
         ft.Stack(
             [
                 background,
                 dark_overlay,
-
                 ft.SafeArea(
                     expand=True,
                     content=panel,
@@ -1491,10 +1292,6 @@ def main(page: ft.Page):
         )
     )
 
-
-# =========================================================
-# تشغيل Flet
-# =========================================================
 
 ft.run(
     main,
