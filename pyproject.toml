@@ -1,0 +1,18 @@
+[project]
+name = "iraq_db_app"
+version = "1.0.0"
+description = "منظومة بيانات العراق"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "flet",
+    "requests"
+]
+
+[tool.flet]
+org = "com.iraqdb"
+product = "منظومة بيانات العراق"
+artifact = "iraq-db-app"
+
+[tool.flet.app]
+path = "."
+module = "main"
