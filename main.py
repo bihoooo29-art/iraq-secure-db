@@ -863,7 +863,7 @@ def main(page: ft.Page):
     background = ft.Image(
         src="bg.jpg",
         expand=True,
-        fit=ft.ImageFit.COVER,
+        fit=ft.BoxFit.COVER,
     )
 
     dark_overlay = ft.Container(
@@ -970,7 +970,7 @@ def main(page: ft.Page):
             src="bg.jpg",
             width=float("inf"),
             height=150,
-            fit=ft.ImageFit.COVER,
+            fit=ft.BoxFit.COVER,
         ),
     )
 
