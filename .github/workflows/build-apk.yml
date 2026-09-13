@@ -12,18 +12,16 @@ jobs:
       - name: تحميل المشروع
         uses: actions/checkout@v6
 
-      - name: بناء APK
-        id: build
-        uses: flet-dev/flet-build-action@v1
-        with:
-          target: apk
-          runner-python-version: "3.14"
-          bundled-python-version: "3.14"
-          build-number: ${{ github.run_number }}
+      - name: تثبيت uv
+        uses: astral-sh/setup-uv@v6
 
-      - name: حفظ APK
+      - name: بناء APK
+        run: |
+          uv run flet build apk --yes --verbose
+
+      - name: رفع APK
         uses: actions/upload-artifact@v7
         with:
-          path: ${{ steps.build.outputs.archive-path }}
-          archive: false
+          name: iraq-db-app-apk
+          path: build/apk/*.apk
           if-no-files-found: error
