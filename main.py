@@ -37,7 +37,6 @@ PROVINCES = [
 ]
 
 
-# الكلمات التي يبحث عنها التطبيق تلقائياً
 NAME_KEYS = [
     "name",
     "fullname",
@@ -138,12 +137,10 @@ def find_column(column_names, keywords):
         for keyword in keywords
     ]
 
-    # تطابق مباشر أولاً
     for column, normalized in normalized_columns.items():
         if normalized in normalized_keywords:
             return column
 
-    # ثم تطابق جزئي
     for column, normalized in normalized_columns.items():
         for keyword in normalized_keywords:
             if keyword and (
@@ -220,6 +217,7 @@ def download_database(db_name, status):
             stream=True,
             timeout=60,
         )
+
         response.raise_for_status()
 
         with open(db_path, "wb") as file:
@@ -469,7 +467,7 @@ def main(page: ft.Page):
             family_results.controls.append(
                 ft.Container(
                     padding=12,
-                    border=ft.border.all(
+                    border=ft.Border.all(
                         1,
                         "#176c31",
                     ),
@@ -690,7 +688,7 @@ def main(page: ft.Page):
 
         return ft.Container(
             padding=15,
-            border=ft.border.all(
+            border=ft.Border.all(
                 1,
                 "#1fbd4d",
             ),
@@ -752,6 +750,7 @@ def main(page: ft.Page):
                     "خطأ",
                     "لم يتم العثور تلقائياً على جدول بيانات مناسب.",
                 )
+                connection.close()
                 return
 
             name_column = find_column(
@@ -764,7 +763,6 @@ def main(page: ft.Page):
                 FAMILY_KEYS,
             )
 
-            # نبحث أولاً في عمود الاسم إذا تم اكتشافه.
             rows = []
 
             if name_column:
@@ -775,7 +773,6 @@ def main(page: ft.Page):
                     [f"%{keyword}%"],
                 ).fetchall()
 
-            # إذا لم نجد نتائج بالاسم، نبحث في كل الأعمدة.
             if not rows:
                 conditions = " OR ".join(
                     f'CAST("{column}" AS TEXT) LIKE ?'
@@ -826,6 +823,7 @@ def main(page: ft.Page):
                     "انتهى البحث — لا توجد نتائج"
                 )
                 page.update()
+                connection.close()
                 return
 
             for index, row in enumerate(
@@ -848,6 +846,12 @@ def main(page: ft.Page):
             page.update()
 
         except Exception as error:
+            if connection:
+                try:
+                    connection.close()
+                except Exception:
+                    pass
+
             status.value = "حدث خطأ"
             page.update()
 
@@ -856,14 +860,10 @@ def main(page: ft.Page):
                 str(error),
             )
 
-        # لا نغلق الاتصال هنا، لأن أزرار جلب العائلة
-        # تحتاج الاتصال عند الضغط عليها.
-
-    # الخلفية
     background = ft.Image(
         src="bg.jpg",
         expand=True,
-        fit=ft.ImageFit.COVER,
+        fit=ft.BoxFit.COVER,
     )
 
     dark_overlay = ft.Container(
@@ -948,7 +948,7 @@ def main(page: ft.Page):
     result_header = ft.Row(
         [
             ft.Icon(
-                ft.Icons.DATABASE,
+                ft.Icons.STORAGE,
                 color="#54ff82",
             ),
             ft.Text(
@@ -961,7 +961,6 @@ def main(page: ft.Page):
         alignment=ft.MainAxisAlignment.CENTER,
     )
 
-    # صورة الجوكر أسفل قسم النتائج
     result_image = ft.Container(
         height=150,
         border_radius=12,
@@ -970,7 +969,7 @@ def main(page: ft.Page):
             src="bg.jpg",
             width=float("inf"),
             height=150,
-            fit=ft.ImageFit.COVER,
+            fit=ft.BoxFit.COVER,
         ),
     )
 
@@ -980,7 +979,7 @@ def main(page: ft.Page):
         padding=18,
         border_radius=20,
         bgcolor="#CC070C09",
-        border=ft.border.all(
+        border=ft.Border.all(
             1,
             "#1b8f3b",
         ),
@@ -1028,4 +1027,4 @@ def main(page: ft.Page):
 ft.run(
     main,
     assets_dir=".",
-    )
+)
