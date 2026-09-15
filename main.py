@@ -225,8 +225,8 @@ def main(page: ft.Page):
     )
 
     province_dropdown = ft.Dropdown(
-        label="اختر المحافظة",
-        hint_text="اختر المحافظة",
+        label="اختر المحافظة المستهدفة",
+        hint_text="اختر المحافظة المستهدفة",
         options=[
             ft.dropdown.Option(key, text)
             for key, text in PROVINCES
@@ -245,7 +245,7 @@ def main(page: ft.Page):
 
     search_field = ft.TextField(
         label="كلمة البحث",
-        hint_text="الاسم الثلاثي أو الثنائي، الرقم أو المعرف...",
+        hint_text="الاسم، الرقم، أو المعرف...",
         border_color="#26d95b",
         focused_border_color="#54ff82",
         label_style=ft.TextStyle(
@@ -302,8 +302,7 @@ def main(page: ft.Page):
                 ]
             ),
             content=ft.Text(
-                "اكتب الاسم الثلاثي أو الثنائي "
-                "أو الرقم أو المعرف ثم اضغط بدء البحث الشامل.\n\n"
+                "اكتب الاسم أو الرقم أو المعرف ثم اضغط بدء البحث الشامل.\n\n"
                 "إذا ظهرت نتيجة لها رقم تموينية، "
                 "يمكنك الضغط على «جلب العائلة» "
                 "لعرض أفراد العائلة المرتبطين بنفس الرقم.\n\n"
@@ -677,7 +676,7 @@ def main(page: ft.Page):
         if not province:
             show_message(
                 "تنبيه",
-                "يرجى اختيار المحافظة أولاً.",
+                "يرجى اختيار المحافظة المستهدفة أولاً.",
             )
             return
 
@@ -833,30 +832,27 @@ def main(page: ft.Page):
         [
             ft.Container(
                 padding=10,
+                border=ft.border.all(1, "#26d95b"),
+                border_radius=16,
+                bgcolor="#0a140d",
                 content=ft.Icon(
-                    ft.Icons.SHIELD,
-                    size=58,
-                    color="#4dff7c",
+                    ft.Icons.LOCK,
+                    size=42,
+                    color="#26d95b",
                 ),
             ),
             ft.Text(
                 "منظومة بيانات العراق",
-                size=28,
+                size=26,
                 weight=ft.FontWeight.BOLD,
                 color="white",
-                text_align=ft.TextAlign.CENTER,
-            ),
-            ft.Text(
-                "نظام البحث الشامل في قواعد البيانات",
-                size=13,
-                color="#72ff9b",
                 text_align=ft.TextAlign.CENTER,
             ),
         ],
         horizontal_alignment=(
             ft.CrossAxisAlignment.CENTER
         ),
-        spacing=3,
+        spacing=8,
     )
 
     search_button = ft.ElevatedButton(
@@ -903,32 +899,31 @@ def main(page: ft.Page):
         alignment=ft.MainAxisAlignment.CENTER,
     )
 
-    result_header = ft.Row(
-        [
-            ft.Icon(
-                ft.Icons.DATABASE,
-                color="#54ff82",
-            ),
-            ft.Text(
-                "سجل النتائج والبيانات المستخرجة",
-                size=19,
-                weight=ft.FontWeight.BOLD,
-                color="white",
-            ),
-        ],
-        alignment=ft.MainAxisAlignment.CENTER,
+    dev_hint_text = ft.Text(
+        "اضغط على زر المطور للتواصل",
+        size=12,
+        color="#70ff96",
+        text_align=ft.TextAlign.CENTER,
     )
 
-    # صورة bg.jpg أسفل قسم النتائج
+    result_header = ft.Text(
+        "سجل النتائج والبيانات المستخرجة:",
+        size=17,
+        weight=ft.FontWeight.BOLD,
+        color="white",
+        text_align=ft.TextAlign.RIGHT,
+    )
+
+    # صورة bg.jpg أسفل قسم النتائج تماماً كما في الصورة المرفقة
     result_image = ft.Container(
-        height=150,
+        height=180,
         border_radius=12,
         clip_behavior=ft.ClipBehavior.HARD_EDGE,
-        border=ft.border.all(1, "#1b8f3b"),
+        border=ft.border.all(1, "#26d95b"),
         content=ft.Image(
             src="bg.jpg",
             width=float("inf"),
-            height=150,
+            height=180,
             fit=ft.ImageFit.COVER,
             error_content=ft.Text("صورة الخلفية غير متوفرة", color="gray"),
         ),
@@ -953,7 +948,11 @@ def main(page: ft.Page):
                 province_dropdown,
                 search_field,
                 search_button,
-                buttons,
+                ft.Column(
+                    [buttons, dev_hint_text],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=6,
+                ),
                 status,
                 ft.Divider(
                     color="#1b8f3b"
