@@ -2,11 +2,16 @@ import os
 import sqlite3
 from pathlib import Path
 
+import requests
 import flet as ft
 
 
-# تحديد مسار قواعد البيانات محلياً داخل ملفات التطبيق المدمجة
-DB_DIR = Path(__file__).parent
+GITHUB_RELEASE_URL = (
+    "https://github.com/bihoooo29-art/iraq-secure-db/releases/download/v1.0.0"
+)
+
+DB_DIR = Path(os.getenv("FLET_APP_STORAGE_DATA", "."))
+DB_DIR.mkdir(parents=True, exist_ok=True)
 
 
 PROVINCES = [
@@ -198,11 +203,41 @@ def find_best_table(cursor):
     return best_table, best_columns
 
 
-def get_local_database(db_name):
+def download_database(db_name, status):
     db_path = DB_DIR / db_name
+
     if db_path.exists():
         return db_path
-    raise Exception(f"ملف قاعدة البيانات {db_name} غير مدمج داخل التطبيق!")
+
+    status.value = f"جاري تحميل {db_name}..."
+    status.update()
+
+    url = f"{GITHUB_RELEASE_URL}/{db_name}"
+
+    try:
+        response = requests.get(
+            url,
+            stream=True,
+            timeout=60,
+        )
+        response.raise_for_status()
+
+        with open(db_path, "wb") as file:
+            for chunk in response.iter_content(
+                chunk_size=1024 * 1024
+            ):
+                if chunk:
+                    file.write(chunk)
+
+        return db_path
+
+    except Exception as error:
+        if db_path.exists():
+            db_path.unlink()
+
+        raise Exception(
+            f"فشل تحميل قاعدة البيانات: {error}"
+        )
 
 
 def main(page: ft.Page):
@@ -225,8 +260,8 @@ def main(page: ft.Page):
     )
 
     province_dropdown = ft.Dropdown(
-        label="اختر المحافظة المستهدفة",
-        hint_text="اختر المحافظة المستهدفة",
+        label="اختر المحافظة",
+        hint_text="اختر المحافظة",
         options=[
             ft.dropdown.Option(key, text)
             for key, text in PROVINCES
@@ -245,7 +280,7 @@ def main(page: ft.Page):
 
     search_field = ft.TextField(
         label="كلمة البحث",
-        hint_text="الاسم، الرقم، أو المعرف...",
+        hint_text="الاسم الثلاثي أو الثنائي، الرقم أو المعرف...",
         border_color="#26d95b",
         focused_border_color="#54ff82",
         label_style=ft.TextStyle(
@@ -302,7 +337,8 @@ def main(page: ft.Page):
                 ]
             ),
             content=ft.Text(
-                "اكتب الاسم أو الرقم أو المعرف ثم اضغط بدء البحث الشامل.\n\n"
+                "اكتب الاسم الثلاثي أو الثنائي "
+                "أو الرقم أو المعرف ثم اضغط بدء البحث الشامل.\n\n"
                 "إذا ظهرت نتيجة لها رقم تموينية، "
                 "يمكنك الضغط على «جلب العائلة» "
                 "لعرض أفراد العائلة المرتبطين بنفس الرقم.\n\n"
@@ -676,7 +712,7 @@ def main(page: ft.Page):
         if not province:
             show_message(
                 "تنبيه",
-                "يرجى اختيار المحافظة المستهدفة أولاً.",
+                "يرجى اختيار المحافظة أولاً.",
             )
             return
 
@@ -688,13 +724,17 @@ def main(page: ft.Page):
             return
 
         db_name = f"{province}.db"
+
         connection = None
 
         try:
-            status.value = "جاري فتح قاعدة البيانات..."
-            status.update()
+            db_path = download_database(
+                db_name,
+                status,
+            )
 
-            db_path = get_local_database(db_name)
+            status.value = "جاري البحث..."
+            status.update()
 
             connection = sqlite3.connect(
                 str(db_path),
@@ -816,6 +856,9 @@ def main(page: ft.Page):
                 str(error),
             )
 
+        # لا نغلق الاتصال هنا، لأن أزرار جلب العائلة
+        # تحتاج الاتصال عند الضغط عليها.
+
     # الخلفية
     background = ft.Image(
         src="bg.jpg",
@@ -832,27 +875,30 @@ def main(page: ft.Page):
         [
             ft.Container(
                 padding=10,
-                border=ft.border.all(1, "#26d95b"),
-                border_radius=16,
-                bgcolor="#0a140d",
                 content=ft.Icon(
-                    ft.Icons.LOCK,
-                    size=42,
-                    color="#26d95b",
+                    ft.Icons.SHIELD,
+                    size=58,
+                    color="#4dff7c",
                 ),
             ),
             ft.Text(
                 "منظومة بيانات العراق",
-                size=26,
+                size=28,
                 weight=ft.FontWeight.BOLD,
                 color="white",
+                text_align=ft.TextAlign.CENTER,
+            ),
+            ft.Text(
+                "نظام البحث الشامل في قواعد البيانات",
+                size=13,
+                color="#72ff9b",
                 text_align=ft.TextAlign.CENTER,
             ),
         ],
         horizontal_alignment=(
             ft.CrossAxisAlignment.CENTER
         ),
-        spacing=8,
+        spacing=3,
     )
 
     search_button = ft.ElevatedButton(
@@ -899,33 +945,32 @@ def main(page: ft.Page):
         alignment=ft.MainAxisAlignment.CENTER,
     )
 
-    dev_hint_text = ft.Text(
-        "اضغط على زر المطور للتواصل",
-        size=12,
-        color="#70ff96",
-        text_align=ft.TextAlign.CENTER,
+    result_header = ft.Row(
+        [
+            ft.Icon(
+                ft.Icons.DATABASE,
+                color="#54ff82",
+            ),
+            ft.Text(
+                "سجل النتائج والبيانات المستخرجة",
+                size=19,
+                weight=ft.FontWeight.BOLD,
+                color="white",
+            ),
+        ],
+        alignment=ft.MainAxisAlignment.CENTER,
     )
 
-    result_header = ft.Text(
-        "سجل النتائج والبيانات المستخرجة:",
-        size=17,
-        weight=ft.FontWeight.BOLD,
-        color="white",
-        text_align=ft.TextAlign.RIGHT,
-    )
-
-    # صورة bg.jpg أسفل قسم النتائج تماماً كما في الصورة المرفقة
+    # صورة الجوكر أسفل قسم النتائج
     result_image = ft.Container(
-        height=180,
+        height=150,
         border_radius=12,
         clip_behavior=ft.ClipBehavior.HARD_EDGE,
-        border=ft.border.all(1, "#26d95b"),
         content=ft.Image(
             src="bg.jpg",
             width=float("inf"),
-            height=180,
+            height=150,
             fit=ft.ImageFit.COVER,
-            error_content=ft.Text("صورة الخلفية غير متوفرة", color="gray"),
         ),
     )
 
@@ -948,11 +993,7 @@ def main(page: ft.Page):
                 province_dropdown,
                 search_field,
                 search_button,
-                ft.Column(
-                    [buttons, dev_hint_text],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=6,
-                ),
+                buttons,
                 status,
                 ft.Divider(
                     color="#1b8f3b"
