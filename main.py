@@ -2,16 +2,11 @@ import os
 import sqlite3
 from pathlib import Path
 
-import requests
 import flet as ft
 
 
-GITHUB_RELEASE_URL = (
-    "https://github.com/bihoooo29-art/iraq-secure-db/releases/download/v1.0.0"
-)
-
-DB_DIR = Path(os.getenv("FLET_APP_STORAGE_DATA", "."))
-DB_DIR.mkdir(parents=True, exist_ok=True)
+# تحديد مسار قواعد البيانات محلياً داخل ملفات التطبيق المدمجة
+DB_DIR = Path(__file__).parent
 
 
 PROVINCES = [
@@ -37,6 +32,7 @@ PROVINCES = [
 ]
 
 
+# الكلمات التي يبحث عنها التطبيق تلقائياً
 NAME_KEYS = [
     "name",
     "fullname",
@@ -137,10 +133,12 @@ def find_column(column_names, keywords):
         for keyword in keywords
     ]
 
+    # تطابق مباشر أولاً
     for column, normalized in normalized_columns.items():
         if normalized in normalized_keywords:
             return column
 
+    # ثم تطابق جزئي
     for column, normalized in normalized_columns.items():
         for keyword in normalized_keywords:
             if keyword and (
@@ -200,42 +198,11 @@ def find_best_table(cursor):
     return best_table, best_columns
 
 
-def download_database(db_name, status):
+def get_local_database(db_name):
     db_path = DB_DIR / db_name
-
     if db_path.exists():
         return db_path
-
-    status.value = f"جاري تحميل {db_name}..."
-    status.update()
-
-    url = f"{GITHUB_RELEASE_URL}/{db_name}"
-
-    try:
-        response = requests.get(
-            url,
-            stream=True,
-            timeout=60,
-        )
-
-        response.raise_for_status()
-
-        with open(db_path, "wb") as file:
-            for chunk in response.iter_content(
-                chunk_size=1024 * 1024
-            ):
-                if chunk:
-                    file.write(chunk)
-
-        return db_path
-
-    except Exception as error:
-        if db_path.exists():
-            db_path.unlink()
-
-        raise Exception(
-            f"فشل تحميل قاعدة البيانات: {error}"
-        )
+    raise Exception(f"ملف قاعدة البيانات {db_name} غير مدمج داخل التطبيق!")
 
 
 def main(page: ft.Page):
@@ -467,7 +434,7 @@ def main(page: ft.Page):
             family_results.controls.append(
                 ft.Container(
                     padding=12,
-                    border=ft.Border.all(
+                    border=ft.border.all(
                         1,
                         "#176c31",
                     ),
@@ -688,7 +655,7 @@ def main(page: ft.Page):
 
         return ft.Container(
             padding=15,
-            border=ft.Border.all(
+            border=ft.border.all(
                 1,
                 "#1fbd4d",
             ),
@@ -722,17 +689,13 @@ def main(page: ft.Page):
             return
 
         db_name = f"{province}.db"
-
         connection = None
 
         try:
-            db_path = download_database(
-                db_name,
-                status,
-            )
-
-            status.value = "جاري البحث..."
+            status.value = "جاري فتح قاعدة البيانات..."
             status.update()
+
+            db_path = get_local_database(db_name)
 
             connection = sqlite3.connect(
                 str(db_path),
@@ -750,7 +713,6 @@ def main(page: ft.Page):
                     "خطأ",
                     "لم يتم العثور تلقائياً على جدول بيانات مناسب.",
                 )
-                connection.close()
                 return
 
             name_column = find_column(
@@ -763,6 +725,7 @@ def main(page: ft.Page):
                 FAMILY_KEYS,
             )
 
+            # نبحث أولاً في عمود الاسم إذا تم اكتشافه.
             rows = []
 
             if name_column:
@@ -773,6 +736,7 @@ def main(page: ft.Page):
                     [f"%{keyword}%"],
                 ).fetchall()
 
+            # إذا لم نجد نتائج بالاسم، نبحث في كل الأعمدة.
             if not rows:
                 conditions = " OR ".join(
                     f'CAST("{column}" AS TEXT) LIKE ?'
@@ -823,7 +787,6 @@ def main(page: ft.Page):
                     "انتهى البحث — لا توجد نتائج"
                 )
                 page.update()
-                connection.close()
                 return
 
             for index, row in enumerate(
@@ -846,12 +809,6 @@ def main(page: ft.Page):
             page.update()
 
         except Exception as error:
-            if connection:
-                try:
-                    connection.close()
-                except Exception:
-                    pass
-
             status.value = "حدث خطأ"
             page.update()
 
@@ -860,10 +817,11 @@ def main(page: ft.Page):
                 str(error),
             )
 
+    # الخلفية
     background = ft.Image(
         src="bg.jpg",
         expand=True,
-        fit=ft.BoxFit.COVER,
+        fit=ft.ImageFit.COVER,
     )
 
     dark_overlay = ft.Container(
@@ -948,7 +906,7 @@ def main(page: ft.Page):
     result_header = ft.Row(
         [
             ft.Icon(
-                ft.Icons.STORAGE,
+                ft.Icons.DATABASE,
                 color="#54ff82",
             ),
             ft.Text(
@@ -961,15 +919,18 @@ def main(page: ft.Page):
         alignment=ft.MainAxisAlignment.CENTER,
     )
 
+    # صورة bg.jpg أسفل قسم النتائج
     result_image = ft.Container(
         height=150,
         border_radius=12,
         clip_behavior=ft.ClipBehavior.HARD_EDGE,
+        border=ft.border.all(1, "#1b8f3b"),
         content=ft.Image(
             src="bg.jpg",
             width=float("inf"),
             height=150,
-            fit=ft.BoxFit.COVER,
+            fit=ft.ImageFit.COVER,
+            error_content=ft.Text("صورة الخلفية غير متوفرة", color="gray"),
         ),
     )
 
@@ -979,7 +940,7 @@ def main(page: ft.Page):
         padding=18,
         border_radius=20,
         bgcolor="#CC070C09",
-        border=ft.Border.all(
+        border=ft.border.all(
             1,
             "#1b8f3b",
         ),
