@@ -38,14 +38,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Prepare App Assets
+        run: |
+          set -e
+
+          echo "Preparing Flet assets..."
+
+          mkdir -p assets/databases
+
+          echo "Copying background..."
+          cp bg.jpg assets/bg.jpg
+
+          echo "Copying app icon..."
+          cp icon.png assets/icon.png
+
+          echo ""
+          echo "Assets:"
+          ls -lh assets/
+
       - name: Prepare Bundled Databases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-
-          echo "Creating database assets folder..."
-          mkdir -p assets/databases
 
           echo "Downloading all SQLite databases from Release $RELEASE_TAG..."
 
@@ -66,6 +81,29 @@ jobs:
           echo ""
           echo "Total database size:"
           du -sh assets/databases
+
+      - name: Verify Assets Before Build
+        run: |
+          set -e
+
+          echo "Checking required files..."
+
+          test -f assets/bg.jpg
+          test -f assets/icon.png
+
+          DB_COUNT=$(find assets/databases -maxdepth 1 -type f -name "*.db" | wc -l)
+
+          echo "Database count = $DB_COUNT"
+
+          if [ "$DB_COUNT" -ne 19 ]; then
+            echo "ERROR: Expected 19 database files, but found $DB_COUNT"
+            exit 1
+          fi
+
+          echo ""
+          echo "All required assets are ready."
+          echo "Total assets size:"
+          du -sh assets
 
       - name: Build APK with Flet
         run: |
