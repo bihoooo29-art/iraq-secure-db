@@ -1,65 +1,56 @@
 import os
+import re
 import sqlite3
 from pathlib import Path
+from datetime import date
 
 import flet as ft
 
 
-# =========================================================
-# المسارات
-# =========================================================
+# ============================================================
+# إعدادات التطبيق
+# ============================================================
 
-PROJECT_DIR = Path(__file__).parent.resolve()
+APP_TITLE = "منظومة بيانات العراق"
+TELEGRAM_URL = "https://t.me/UB_515"
 
-DEFAULT_ASSETS_DIR = PROJECT_DIR / "assets"
+GREEN = "#00FF7F"
+CYAN = "#00F0FF"
+BG = "#020D10"
+PANEL = "#03181A"
+FIELD = "#041E20"
+WHITE = "#F7FFF9"
+MUTED = "#9BB0B0"
 
+# مجلد assets الذي يدخل داخل APK
 ASSETS_DIR = Path(
-    os.environ.get(
-        "FLET_ASSETS_DIR",
-        str(DEFAULT_ASSETS_DIR)
-    )
+    os.environ.get("FLET_ASSETS_DIR", "assets")
 ).resolve()
 
 DB_DIR = ASSETS_DIR / "databases"
 
+# صورة الجوكر الموجودة في assets/bg.jpg
 JOKER_IMAGE = ASSETS_DIR / "bg.jpg"
 
-
-# =========================================================
-# ألوان التصميم
-# =========================================================
-
-BG = "#020B0A"
-PANEL = "#031413"
-PANEL_2 = "#061D19"
-
-NEON = "#00FF88"
-NEON_2 = "#00E676"
-NEON_DARK = "#008F5A"
-
-CYAN = "#00E5FF"
-
-WHITE = "#F5F5F5"
-GRAY = "#9AA7A4"
-
-RED = "#FF4D4D"
+# إذا عندك خلفية منفصلة للواجهة يمكن وضعها هنا
+UI_BACKGROUND = ASSETS_DIR / "ui_background.png"
 
 
-# =========================================================
+# ============================================================
 # المحافظات
-# =========================================================
+# ============================================================
 
 PROVINCES = [
     ("بغداد", "baghdad.db"),
     ("الأنبار", "alanbar.db"),
     ("بابل", "babylon.db"),
-    ("البصرة", "basra.db"),
+    ("البصرة", "basrah.db"),
     ("ذي قار", "dhiqar.db"),
     ("القادسية", "qadisiyah.db"),
     ("ديالى", "diyala.db"),
     ("دهوك", "duhok.db"),
     ("أربيل", "erbil.db"),
-    ("كربلاء", "karbala.db"),
+    ("كربلاء", "karbalaa.db"),
     ("كركوك", "kirkuk.db"),
     ("ميسان", "maysan.db"),
     ("المثنى", "muthanna.db"),
@@ -72,147 +63,55 @@ PROVINCES = [
 ]
 
 
-# =========================================================
-# كلمات التعرف على الحقول
-# =========================================================
+# ============================================================
+# أدوات النص
+# ============================================================
 
-NAME_WORDS = [
-    "name",
-    "fullname",
-    "full_name",
-    "person",
-    "اسم",
-    "الاسم",
-    "الاسم الكامل",
-    "اسم الشخص",
-]
-
-ID_WORDS = [
-    "id",
-    "identifier",
-    "identity",
-    "national",
-    "national_id",
-    "civil",
-    "nid",
-    "رقم",
-    "رقم الهوية",
-    "الهوية",
-    "البطاقة",
-]
-
-PHONE_WORDS = [
-    "phone",
-    "mobile",
-    "telephone",
-    "tel",
-    "رقم الهاتف",
-    "الهاتف",
-    "الموبايل",
-]
-
-ADDRESS_WORDS = [
-    "address",
-    "location",
-    "street",
-    "district",
-    "area",
-    "عنوان",
-    "العنوان",
-    "السكن",
-    "المحلة",
-    "القضاء",
-    "الناحية",
-]
-
-GENDER_WORDS = [
-    "gender",
-    "sex",
-    "جنس",
-    "الجنس",
-]
-
-DATE_WORDS = [
-    "date",
-    "birth",
-    "birthday",
-    "dob",
-    "تاريخ",
-    "تاريخ الميلاد",
-    "الميلاد",
-]
-
-TABLE_WORDS = [
-    "table",
-    "جدول",
-    "نوع",
-    "category",
-    "department",
-    "قسم",
-]
-
-
-# =========================================================
-# أدوات مساعدة
-# =========================================================
-
-def normalize_text(value):
+def norm(value):
     if value is None:
         return ""
 
     text = str(value).strip().lower()
 
-    replacements = {
-        "أ": "ا",
-        "إ": "ا",
-        "آ": "ا",
-        "ة": "ه",
-        "ى": "ي",
-        "ؤ": "و",
-        "ئ": "ي",
-    }
+    text = text.replace("أ", "ا")
+    text = text.replace("إ", "ا")
+    text = text.replace("آ", "ا")
+    text = text.replace("ة", "ه")
+    text = text.replace("ى", "ي")
 
-    for old, new in replacements.items():
-        text = text.replace(old, new)
+    text = re.sub(r"\s+", " ", text)
 
-    return " ".join(text.split())
+    return text
 
 
-def contains_keyword(column_name, keywords):
-    col = normalize_text(column_name)
-
-    for word in keywords:
-        if normalize_text(word) in col:
-            return True
-
-    return False
-
-
-def safe_value(value):
+def clean_text(value):
     if value is None:
-        return ""
+        return "None"
 
-    return str(value).strip()
+    text = str(value).strip()
+
+    return text if text else "None"
 
 
-def open_database(db_path):
+# ============================================================
+# SQLite
+# ============================================================
+
+def safe_connect(db_path):
     """
-    فتح قاعدة SQLite للقراءة فقط.
+    فتح قاعدة البيانات للقراءة فقط.
     """
-
     uri = f"file:{db_path.as_posix()}?mode=ro"
 
     return sqlite3.connect(
         uri,
         uri=True,
-        timeout=20,
+        timeout=10
     )
 
 
-def get_tables(connection):
-    cursor = connection.cursor()
-
-    cursor.execute(
+def table_names(conn):
+    rows = conn.execute(
         """
         SELECT name
         FROM sqlite_master
@@ -220,597 +119,1744 @@ def get_tables(connection):
         AND name NOT LIKE 'sqlite_%'
         ORDER BY name
         """
-    )
+    ).fetchall()
 
-    return [row[0] for row in cursor.fetchall()]
-
-
-def get_columns(connection, table_name):
-    cursor = connection.cursor()
-
-    cursor.execute(
-        f'PRAGMA table_info("{table_name}")'
-    )
-
-    return [row[1] for row in cursor.fetchall()]
+    return [row[0] for row in rows]
 
 
-def find_best_column(columns, keywords):
-    for column in columns:
-        if contains_keyword(column, keywords):
-            return column
+def columns(conn, table):
+    table = table.replace('"', '""')
+
+    rows = conn.execute(
+        f'PRAGMA table_info("{table}")'
+    ).fetchall()
+
+    return [row[1] for row in rows]
+
+
+def quote_ident(value):
+    return '"' + str(value).replace('"', '""') + '"'
+
+
+# ============================================================
+# أسماء الحقول المحتملة
+# ============================================================
+
+ALIASES = {
+
+    "family": [
+        "رقم التموينية",
+        "رقم البطاقه التموينيه",
+        "التموينية",
+        "تموينية",
+        "ration",
+        "ration_no",
+        "ration_number",
+        "ration_card",
+        "card_no",
+        "card_number",
+        "family_no",
+        "family_number",
+        "household_no",
+        "household_number",
+        "household",
+        "family_id",
+        "familyid",
+    ],
+
+    "name": [
+        "الاسم",
+        "اسم",
+        "الاسم الكامل",
+        "اسم الشخص",
+        "name",
+        "full_name",
+        "fullname",
+        "person_name",
+    ],
+
+    "birth": [
+        "المواليد",
+        "مواليد",
+        "تاريخ الميلاد",
+        "تاريخ المولد",
+        "birth",
+        "birth_year",
+        "year_of_birth",
+        "dob",
+        "date_of_birth",
+        "birthdate",
+    ],
+
+    "job": [
+        "الوظيفة",
+        "المهنة",
+        "العمل",
+        "occupation",
+        "job",
+        "work",
+        "profession",
+    ],
+
+    "gender": [
+        "الجنس",
+        "النوع",
+        "gender",
+        "sex",
+    ],
+
+    "sequence": [
+        "تسلسل الفرد",
+        "تسلسل",
+        "تسلسل الشخص",
+        "رقم الفرد",
+        "member_no",
+        "member_number",
+        "sequence",
+        "seq",
+        "person_no",
+        "person_number",
+    ],
+
+    "id": [
+        "المعرف",
+        "معرف",
+        "رقم المعرف",
+        "الرقم الوطني",
+        "رقم البطاقة",
+        "id",
+        "person_id",
+        "national_id",
+        "identifier",
+    ],
+
+    "province": [
+        "المحافظة",
+        "province",
+        "governorate",
+    ],
+}
+
+
+def find_alias_column(cols, aliases):
+    normalized = {
+        norm(column): column
+        for column in cols
+    }
+
+    # تطابق مباشر
+    for alias in aliases:
+
+        key = norm(alias)
+
+        if key in normalized:
+            return normalized[key]
+
+    # تطابق جزئي
+    for column in cols:
+
+        column_norm = norm(column)
+
+        for alias in aliases:
+
+            alias_norm = norm(alias)
+
+            if (
+                alias_norm
+                and (
+                    alias_norm in column_norm
+                    or column_norm in alias_norm
+                )
+            ):
+                return column
 
     return None
 
 
-def quote_identifier(value):
-    return '"' + str(value).replace('"', '""') + '"'
+def field_map(cols):
+    return {
+        key: find_alias_column(cols, aliases)
+        for key, aliases in ALIASES.items()
+    }
 
 
-# =========================================================
-# البحث داخل قاعدة البيانات
-# =========================================================
+# ============================================================
+# البحث
+# ============================================================
 
-def search_database(db_path, province_name, search_text, max_results=30):
+def search_database(db_path, query, max_hits=30):
 
     results = []
 
-    if not db_path.exists():
+    try:
+        conn = safe_connect(db_path)
+
+    except Exception:
         return results
 
-    connection = None
-
     try:
-        connection = open_database(db_path)
 
-        tables = get_tables(connection)
-
-        if not tables:
-            return results
-
-        search_normalized = normalize_text(search_text)
-
-        for table in tables:
+        for table in table_names(conn):
 
             try:
-                columns = get_columns(connection, table)
 
-                if not columns:
+                cols = columns(conn, table)
+
+                if not cols:
                     continue
 
-                name_column = find_best_column(
-                    columns,
-                    NAME_WORDS
-                )
+                fmap = field_map(cols)
 
-                id_column = find_best_column(
-                    columns,
-                    ID_WORDS
-                )
+                candidate_cols = []
 
-                phone_column = find_best_column(
-                    columns,
-                    PHONE_WORDS
-                )
+                # نبحث أولاً في أهم الحقول
+                for key in (
+                    "family",
+                    "name",
+                    "birth",
+                    "id"
+                ):
 
-                address_column = find_best_column(
-                    columns,
-                    ADDRESS_WORDS
-                )
+                    column = fmap.get(key)
 
-                gender_column = find_best_column(
-                    columns,
-                    GENDER_WORDS
-                )
+                    if column and column not in candidate_cols:
+                        candidate_cols.append(column)
 
-                date_column = find_best_column(
-                    columns,
-                    DATE_WORDS
-                )
-
-                table_column = find_best_column(
-                    columns,
-                    TABLE_WORDS
-                )
-
-                # -----------------------------------------
-                # تحديد الأعمدة التي سيبحث فيها التطبيق
-                # -----------------------------------------
-
-                search_columns = []
-
-                preferred = [
-                    name_column,
-                    id_column,
-                    phone_column,
-                    address_column,
-                ]
-
-                for col in preferred:
-                    if col and col not in search_columns:
-                        search_columns.append(col)
-
-                # إذا ما وجد أعمدة معروفة، يبحث في كل الأعمدة النصية
-                if not search_columns:
-                    search_columns = columns
-
-                # -----------------------------------------
-                # بناء الاستعلام
-                # -----------------------------------------
+                # إذا لم نجد حقول معروفة
+                # نبحث في جميع الأعمدة
+                if not candidate_cols:
+                    candidate_cols = cols
 
                 where_parts = []
                 params = []
 
-                if search_normalized:
+                for column in candidate_cols:
 
-                    for column in search_columns:
+                    where_parts.append(
+                        f"CAST({quote_ident(column)} AS TEXT) LIKE ?"
+                    )
 
-                        where_parts.append(
-                            f"LOWER(CAST({quote_identifier(column)} AS TEXT)) LIKE ?"
-                        )
+                    params.append(
+                        f"%{query}%"
+                    )
 
-                        params.append(
-                            f"%{search_normalized}%"
-                        )
-
-                else:
-                    # إذا البحث فارغ لا نريد جلب آلاف السجلات
-                    continue
-
-                where_sql = " OR ".join(where_parts)
-
-                sql = f"""
-                    SELECT *
-                    FROM {quote_identifier(table)}
-                    WHERE {where_sql}
-                    LIMIT ?
-                """
-
-                params.append(max_results)
-
-                cursor = connection.cursor()
-
-                cursor.execute(
-                    sql,
-                    params
+                sql = (
+                    f"SELECT * FROM {quote_ident(table)} "
+                    f"WHERE {' OR '.join(where_parts)} "
+                    f"LIMIT ?"
                 )
 
-                rows = cursor.fetchall()
-
-                returned_columns = [
-                    description[0]
-                    for description in cursor.description
-                ]
+                rows = conn.execute(
+                    sql,
+                    (*params, max_hits)
+                ).fetchall()
 
                 for row in rows:
 
-                    record = dict(
-                        zip(
-                            returned_columns,
-                            row
-                        )
+                    results.append(
+                        {
+                            "table": table,
+                            "columns": cols,
+                            "row": row,
+                            "fields": fmap,
+                        }
                     )
 
-                    results.append({
-                        "province": province_name,
-                        "table": safe_value(table),
-                        "name": safe_value(
-                            record.get(name_column)
-                            if name_column
-                            else ""
-                        ),
-                        "id": safe_value(
-                            record.get(id_column)
-                            if id_column
-                            else ""
-                        ),
-                        "phone": safe_value(
-                            record.get(phone_column)
-                            if phone_column
-                            else ""
-                        ),
-                        "address": safe_value(
-                            record.get(address_column)
-                            if address_column
-                            else ""
-                        ),
-                        "gender": safe_value(
-                            record.get(gender_column)
-                            if gender_column
-                            else ""
-                        ),
-                        "date": safe_value(
-                            record.get(date_column)
-                            if date_column
-                            else ""
-                        ),
-                        "category": safe_value(
-                            record.get(table_column)
-                            if table_column
-                            else ""
-                        ),
-                        "raw": record,
-                    })
-
-                    if len(results) >= max_results:
+                    if len(results) >= max_hits:
                         return results
 
             except Exception:
                 continue
 
-    except Exception:
-        return results
-
     finally:
-        if connection:
-            try:
-                connection.close()
-            except Exception:
-                pass
+        conn.close()
 
     return results
 
 
-# =========================================================
-# البحث في جميع المحافظات
-# =========================================================
+# ============================================================
+# استخراج البيانات
+# ============================================================
 
-def perform_search(province_name, search_text):
+def get_field(hit, key):
 
-    search_text = search_text.strip()
+    fmap = hit.get("fields", {})
+    cols = hit.get("columns", [])
+    row = hit.get("row", ())
 
-    if not search_text:
-        return []
+    column = fmap.get(key)
 
-    if province_name == "كل المحافظات":
+    if column and column in cols:
 
-        all_results = []
+        index = cols.index(column)
 
-        for name, filename in PROVINCES:
+        return row[index]
 
-            db_path = DB_DIR / filename
+    return None
 
-            found = search_database(
-                db_path,
-                name,
-                search_text,
-                max_results=15
-            )
 
-            all_results.extend(found)
+def extract_family_number(hit):
 
-            if len(all_results) >= 100:
-                break
+    value = get_field(hit, "family")
 
-        return all_results[:100]
+    if clean_text(value) != "None":
+        return str(value).strip()
 
-    selected = None
+    cols = hit.get("columns", [])
+    row = hit.get("row", ())
+
+    for column in cols:
+
+        column_norm = norm(column)
+
+        if any(
+            word in column_norm
+            for word in [
+                "تمويني",
+                "ration",
+                "family",
+                "household"
+            ]
+        ):
+
+            value = row[cols.index(column)]
+
+            if clean_text(value) != "None":
+                return str(value).strip()
+
+    return None
+
+
+def year_from_value(value):
+
+    if value is None:
+        return None
+
+    text = str(value)
+
+    match = re.search(
+        r"(18|19|20)\d{2}",
+        text
+    )
+
+    if not match:
+        return None
+
+    return int(match.group())
+
+
+def calculate_age(value):
+
+    year = year_from_value(value)
+
+    if not year:
+        return "None"
+
+    current_year = date.today().year
+
+    age = current_year - year
+
+    return str(max(0, age))
+
+
+# ============================================================
+# جلب جميع أفراد العائلة
+# ============================================================
+
+def family_rows(
+    db_path,
+    family_number,
+    source_hit=None,
+    limit=100
+):
+
+    results = []
+    seen = set()
+
+    try:
+        conn = safe_connect(db_path)
+
+    except Exception:
+        return results
+
+    try:
+
+        tables = []
+
+        if source_hit and source_hit.get("table"):
+            tables.append(source_hit["table"])
+
+        for table in table_names(conn):
+
+            if table not in tables:
+                tables.append(table)
+
+        for table in tables:
+
+            try:
+
+                cols = columns(
+                    conn,
+                    table
+                )
+
+                fmap = field_map(cols)
+
+                family_column = fmap.get("family")
+
+                # محاولة إضافية
+                if not family_column:
+
+                    for column in cols:
+
+                        column_norm = norm(column)
+
+                        if any(
+                            word in column_norm
+                            for word in [
+                                "تمويني",
+                                "ration",
+                                "family",
+                                "household"
+                            ]
+                        ):
+
+                            family_column = column
+                            break
+
+                if not family_column:
+                    continue
+
+                sql = (
+                    f"SELECT * FROM {quote_ident(table)} "
+                    f"WHERE CAST("
+                    f"{quote_ident(family_column)} "
+                    f"AS TEXT) = ? "
+                    f"LIMIT ?"
+                )
+
+                rows = conn.execute(
+                    sql,
+                    (
+                        str(family_number),
+                        limit
+                    )
+                ).fetchall()
+
+                for row in rows:
+
+                    key = (
+                        table,
+                        tuple(
+                            "" if value is None
+                            else str(value)
+                            for value in row
+                        )
+                    )
+
+                    if key in seen:
+                        continue
+
+                    seen.add(key)
+
+                    results.append(
+                        {
+                            "table": table,
+                            "columns": cols,
+                            "row": row,
+                            "fields": fmap,
+                        }
+                    )
+
+                    if len(results) >= limit:
+                        return results
+
+            except Exception:
+                continue
+
+    finally:
+        conn.close()
+
+    return results
+
+
+def find_db_for_province(province):
 
     for name, filename in PROVINCES:
-        if name == province_name:
-            selected = filename
-            break
 
-    if not selected:
-        return []
+        if name == province:
+            return DB_DIR / filename
 
-    db_path = DB_DIR / selected
+    return None
 
-    return search_database(
-        db_path,
-        province_name,
-        search_text,
-        max_results=100
+
+# ============================================================
+# عنصر سطر النتيجة
+# ============================================================
+
+def result_line(label, value):
+
+    return ft.Container(
+
+        # الشفافية هنا فقط على معلومات النتيجة
+        bgcolor="#03191A99",
+
+        border=ft.border.all(
+            1,
+            "#00FF7F66"
+        ),
+
+        border_radius=10,
+
+        padding=ft.padding.symmetric(
+            horizontal=10,
+            vertical=6
+        ),
+
+        content=ft.Row(
+
+            spacing=8,
+
+            vertical_alignment=(
+                ft.CrossAxisAlignment.START
+            ),
+
+            controls=[
+
+                ft.Icon(
+                    ft.Icons.CHECK_CIRCLE_OUTLINE,
+                    color=GREEN,
+                    size=18,
+                ),
+
+                ft.Text(
+                    f"{label}: {clean_text(value)}",
+                    color=WHITE,
+                    size=16,
+                    weight=ft.FontWeight.W_500,
+                    text_align=ft.TextAlign.RIGHT,
+                    expand=True,
+                ),
+            ],
+        ),
     )
 
 
-# =========================================================
-# أيقونة المعلومة
-# =========================================================
+# ============================================================
+# بطاقة البحث العادي
+# ============================================================
 
-def info_row(icon_name, title, value):
+def cyber_result_card(hit, index):
 
-    if not value:
-        return None
+    fields = [
 
-    return ft.Row(
+        (
+            "رقم التموينية",
+            get_field(hit, "family")
+        ),
+
+        (
+            "الاسم",
+            get_field(hit, "name")
+        ),
+
+        (
+            "المواليد",
+            get_field(hit, "birth")
+        ),
+
+        (
+            "العمر",
+            calculate_age(
+                get_field(hit, "birth")
+            )
+        ),
+
+        (
+            "الوظيفة",
+            get_field(hit, "job")
+        ),
+
+        (
+            "تسلسل الفرد",
+            get_field(hit, "sequence")
+        ),
+    ]
+
+    gender = get_field(
+        hit,
+        "gender"
+    )
+
+    province = get_field(
+        hit,
+        "province"
+    )
+
+    person_id = get_field(
+        hit,
+        "id"
+    )
+
+    if gender is not None:
+        fields.insert(
+            4,
+            ("الجنس", gender)
+        )
+
+    if province is not None:
+        fields.insert(
+            5,
+            ("المحافظة", province)
+        )
+
+    if person_id is not None:
+        fields.append(
+            ("المعرف", person_id)
+        )
+
+    info = ft.Column(
+
+        spacing=6,
+
         controls=[
-            ft.Icon(
-                name=icon_name,
-                color=NEON,
-                size=21,
-            ),
 
             ft.Text(
-                title,
-                color=NEON,
-                size=15,
+                f"نتيجة {index}",
+                color=CYAN,
+                size=19,
                 weight=ft.FontWeight.BOLD,
                 text_align=ft.TextAlign.RIGHT,
             ),
 
-            ft.Text(
-                value,
-                color=WHITE,
-                size=15,
-                expand=True,
-                text_align=ft.TextAlign.RIGHT,
-            ),
+            *[
+                result_line(
+                    label,
+                    value
+                )
+                for label, value in fields
+            ],
         ],
-        spacing=8,
-        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-        alignment=ft.MainAxisAlignment.END,
     )
 
-
-# =========================================================
-# بطاقة نتيجة
-# =========================================================
-
-def result_card(result):
-
-    rows = []
-
-    row = info_row(
-        ft.Icons.TABLE_CHART,
-        "الجدول:",
-        result.get("table", "")
-    )
-
-    if row:
-        rows.append(row)
-
-    row = info_row(
-        ft.Icons.PERSON,
-        "الاسم:",
-        result.get("name", "")
-    )
-
-    if row:
-        rows.append(row)
-
-    row = info_row(
-        ft.Icons.BADGE,
-        "رقم الهوية:",
-        result.get("id", "")
-    )
-
-    if row:
-        rows.append(row)
-
-    row = info_row(
-        ft.Icons.PHONE,
-        "الهاتف:",
-        result.get("phone", "")
-    )
-
-    if row:
-        rows.append(row)
-
-    row = info_row(
-        ft.Icons.LOCATION_ON,
-        "المحافظة:",
-        result.get("province", "")
-    )
-
-    if row:
-        rows.append(row)
-
-    row = info_row(
-        ft.Icons.HOME,
-        "العنوان:",
-        result.get("address", "")
-    )
-
-    if row:
-        rows.append(row)
-
-    row = info_row(
-        ft.Icons.WC,
-        "الجنس:",
-        result.get("gender", "")
-    )
-
-    if row:
-        rows.append(row)
-
-    row = info_row(
-        ft.Icons.CALENDAR_MONTH,
-        "التاريخ:",
-        result.get("date", "")
-    )
-
-    if row:
-        rows.append(row)
-
-    row = info_row(
-        ft.Icons.FOLDER,
-        "القسم:",
-        result.get("category", "")
-    )
-
-    if row:
-        rows.append(row)
-
-    # -----------------------------------------------------
-    # صورة الجوكر
-    # -----------------------------------------------------
-
+    # صورة الجوكر واضحة بالكامل
+    # لا توجد شفافية هنا
     if JOKER_IMAGE.exists():
 
         joker = ft.Image(
             src="bg.jpg",
-            width=190,
-            height=210,
+            width=150,
+            height=150,
             fit=ft.ImageFit.COVER,
-            border_radius=12,
+            opacity=1.0,
         )
 
     else:
 
-        # بديل مرسوم داخل التطبيق
         joker = ft.Container(
-            width=190,
-            height=210,
-            border=ft.Border.all(
-                2,
-                NEON
-            ),
-            border_radius=12,
-            bgcolor="#00120E",
-            alignment=ft.Alignment.CENTER,
-            content=ft.Column(
-                controls=[
-                    ft.Icon(
-                        name=ft.Icons.SECURITY,
-                        color=NEON,
-                        size=70,
-                    ),
-
-                    ft.Text(
-                        "◉  ◉",
-                        color=NEON,
-                        size=25,
-                        weight=ft.FontWeight.BOLD,
-                    ),
-
-                    ft.Text(
-                        "╲  ╱",
-                        color=NEON,
-                        size=25,
-                        weight=ft.FontWeight.BOLD,
-                    ),
-
-                    ft.Text(
-                        "CYBER",
-                        color=NEON,
-                        size=13,
-                        weight=ft.FontWeight.BOLD,
-                    ),
-                ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                alignment=ft.MainAxisAlignment.CENTER,
-                spacing=5,
+            width=150,
+            height=150,
+            bgcolor="#031313",
+            alignment=ft.alignment.center,
+            content=ft.Icon(
+                ft.Icons.SECURITY,
+                color=GREEN,
+                size=64,
             ),
         )
 
     return ft.Container(
+
+        padding=14,
+
         margin=ft.margin.only(
-            top=8,
-            bottom=8,
+            bottom=12
         ),
 
-        padding=12,
+        bgcolor="#03191A",
 
-        border=ft.Border.all(
+        border=ft.border.all(
             2,
-            NEON,
+            GREEN
         ),
 
-        border_radius=18,
-
-        bgcolor="#02100E",
+        border_radius=24,
 
         content=ft.Row(
+
+            spacing=14,
+
             controls=[
                 joker,
 
                 ft.Container(
                     expand=True,
-                    padding=ft.padding.only(
-                        left=8,
-                        right=8,
-                    ),
-                    content=ft.Column(
-                        controls=rows,
-                        spacing=10,
-                        horizontal_alignment=ft.CrossAxisAlignment.END,
-                    ),
+                    content=info,
                 ),
             ],
-            spacing=12,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
         ),
     )
 
 
-# =========================================================
+# ============================================================
 # التطبيق
-# =========================================================
+# ============================================================
 
 def main(page: ft.Page):
 
-    page.title = "منظومة بيانات العراق"
-
-    page.bgcolor = BG
-
-    page.padding = 0
-
-    page.spacing = 0
-
+    page.title = APP_TITLE
     page.rtl = True
-
+    page.bgcolor = BG
+    page.padding = 0
+    page.spacing = 0
     page.scroll = ft.ScrollMode.AUTO
 
-    # -----------------------------------------------------
-    # المتغيرات
-    # -----------------------------------------------------
+    # ========================================================
+    # المحافظة
+    # ========================================================
 
-    selected_province = "بغداد"
+    province_dd = ft.Dropdown(
 
-    # -----------------------------------------------------
-    # SnackBar
-    # -----------------------------------------------------
+        value="بغداد",
 
-    def show_message(message):
+        options=[
+            ft.dropdown.Option(name)
+            for name, _ in PROVINCES
+        ],
 
-        page.snack_bar = ft.SnackBar(
-            content=ft.Text(
-                message,
-                color=WHITE,
-                text_align=ft.TextAlign.RIGHT,
-            ),
-            bgcolor="#08231C",
+        text_size=17,
+        color=WHITE,
+        bgcolor=FIELD,
+
+        border_color=GREEN,
+        focused_border_color=GREEN,
+
+        border_width=2,
+        border_radius=18,
+
+        content_padding=ft.padding.symmetric(
+            horizontal=18,
+            vertical=12
+        ),
+
+        expand=True,
+    )
+
+    # ========================================================
+    # البحث
+    # ========================================================
+
+    search_field = ft.TextField(
+
+        hint_text="الاسم، الرقم، أو المعرف...",
+
+        hint_style=ft.TextStyle(
+            color="#789090",
+            size=16
+        ),
+
+        text_style=ft.TextStyle(
+            color=WHITE,
+            size=17
+        ),
+
+        cursor_color=GREEN,
+
+        border_color=GREEN,
+        focused_border_color=GREEN,
+
+        border_width=2,
+        border_radius=18,
+
+        bgcolor=FIELD,
+
+        prefix_icon=ft.Icons.SEARCH,
+        prefix_icon_color=GREEN,
+
+        text_align=ft.TextAlign.RIGHT,
+
+        expand=True,
+    )
+
+    # ========================================================
+    # منطقة النتائج
+    # ========================================================
+
+    results_column = ft.Column(
+
+        spacing=0,
+
+        horizontal_alignment=(
+            ft.CrossAxisAlignment.STRETCH
+        ),
+    )
+
+    results_title = ft.Text(
+
+        "سجل النتائج والبيانات المسترجعة:",
+
+        color=CYAN,
+
+        size=20,
+
+        weight=ft.FontWeight.BOLD,
+
+        text_align=ft.TextAlign.RIGHT,
+    )
+
+    status_text = ft.Text(
+
+        "",
+
+        color=MUTED,
+
+        size=14,
+
+        text_align=ft.TextAlign.CENTER,
+    )
+
+    # ========================================================
+    # أدوات داخل التطبيق
+    # ========================================================
+
+    def selected_db():
+        return find_db_for_province(
+            province_dd.value
         )
 
-        page.snack_bar.open = True
+    # ========================================================
+    # عرض صورة الجوكر عند بداية التطبيق
+    # ========================================================
+
+    def clear_results():
+
+        results_column.controls.clear()
+
+        if JOKER_IMAGE.exists():
+
+            results_column.controls.append(
+
+                ft.Container(
+
+                    height=320,
+
+                    border=ft.border.all(
+                        2,
+                        GREEN
+                    ),
+
+                    border_radius=22,
+
+                    padding=8,
+
+                    clip_behavior=(
+                        ft.ClipBehavior.HARD_EDGE
+                    ),
+
+                    content=ft.Image(
+
+                        src="bg.jpg",
+
+                        # الصورة واضحة بالكامل
+                        opacity=1.0,
+
+                        fit=ft.ImageFit.COVER,
+
+                        width=float("inf"),
+
+                        height=300,
+                    ),
+                )
+            )
+
+        else:
+
+            results_column.controls.append(
+
+                ft.Container(
+
+                    height=320,
+
+                    border=ft.border.all(
+                        2,
+                        GREEN
+                    ),
+
+                    border_radius=22,
+
+                    alignment=ft.alignment.center,
+
+                    content=ft.Icon(
+                        ft.Icons.SECURITY,
+                        color=GREEN,
+                        size=96,
+                    ),
+                )
+            )
+
+    # ========================================================
+    # البحث الشامل
+    # ========================================================
+
+    def start_search(e=None):
+
+        query = (
+            search_field.value or ""
+        ).strip()
+
+        db_path = selected_db()
+
+        if not query:
+
+            status_text.value = (
+                "اكتب كلمة البحث أولاً."
+            )
+
+            page.update()
+            return
+
+        if (
+            not db_path
+            or not db_path.exists()
+        ):
+
+            status_text.value = (
+                "ملف قاعدة البيانات غير موجود."
+            )
+
+            page.update()
+            return
+
+        status_text.value = (
+            "جارِ البحث..."
+        )
+
+        results_column.controls.clear()
 
         page.update()
 
-    # -----------------------------------------------------
-    # تعليمات
-    # -----------------------------------------------------
+        hits = search_database(
+            db_path,
+            query,
+            max_hits=30
+        )
+
+        if not hits:
+
+            status_text.value = (
+                "لم يتم العثور على نتائج."
+            )
+
+            clear_results()
+
+            page.update()
+            return
+
+        status_text.value = (
+            f"تم العثور على {len(hits)} نتيجة."
+        )
+
+        results_column.controls.extend(
+
+            [
+                cyber_result_card(
+                    hit,
+                    index
+                )
+
+                for index, hit
+                in enumerate(
+                    hits,
+                    1
+                )
+            ]
+        )
+
+        page.update()
+
+    # ========================================================
+    # جلب العائلة
+    # ========================================================
+
+    def fetch_family(e=None):
+
+        query = (
+            search_field.value or ""
+        ).strip()
+
+        db_path = selected_db()
+
+        if not query:
+
+            status_text.value = (
+                "اكتب رقم التموينية أو اسم أحد أفراد العائلة أولاً."
+            )
+
+            page.update()
+            return
+
+        if (
+            not db_path
+            or not db_path.exists()
+        ):
+
+            status_text.value = (
+                "قاعدة البيانات غير موجودة."
+            )
+
+            page.update()
+            return
+
+        status_text.value = (
+            "جارِ جلب العائلة..."
+        )
+
+        results_column.controls.clear()
+
+        page.update()
+
+        # أولاً نبحث عن الشخص
+        first_hits = search_database(
+            db_path,
+            query,
+            max_hits=20
+        )
+
+        if not first_hits:
+
+            status_text.value = (
+                "لم يتم العثور على الشخص أو رقم التموينية."
+            )
+
+            page.update()
+            return
+
+        family_number = None
+        source_hit = None
+
+        for hit in first_hits:
+
+            candidate = extract_family_number(
+                hit
+            )
+
+            if candidate:
+
+                family_number = candidate
+                source_hit = hit
+
+                break
+
+        if not family_number:
+
+            status_text.value = (
+                "تم العثور على النتيجة، "
+                "لكن لم أستطع تحديد رقم التموينية."
+            )
+
+            page.update()
+            return
+
+        # جلب كل أفراد نفس العائلة
+        family = family_rows(
+
+            db_path,
+
+            family_number,
+
+            source_hit=source_hit,
+
+            limit=100
+        )
+
+        if not family:
+
+            status_text.value = (
+                f"رقم التموينية {family_number} موجود، "
+                "لكن لم أجد بقية أفراد العائلة."
+            )
+
+            page.update()
+            return
+
+        # ====================================================
+        # ترتيب أفراد العائلة حسب التسلسل
+        # ====================================================
+
+        def seq_key(hit):
+
+            value = get_field(
+                hit,
+                "sequence"
+            )
+
+            if value is None:
+                return 999999
+
+            match = re.search(
+                r"\d+",
+                str(value)
+            )
+
+            if match:
+                return int(
+                    match.group()
+                )
+
+            return 999999
+
+        family.sort(
+            key=seq_key
+        )
+
+        # ====================================================
+        # معلومات أفراد العائلة
+        # ====================================================
+
+        member_controls = []
+
+        for index, hit in enumerate(
+            family,
+            1
+        ):
+
+            sequence = get_field(
+                hit,
+                "sequence"
+            )
+
+            if (
+                sequence is None
+                or clean_text(sequence) == "None"
+            ):
+                sequence = index
+
+            name = get_field(
+                hit,
+                "name"
+            )
+
+            birth = get_field(
+                hit,
+                "birth"
+            )
+
+            job = get_field(
+                hit,
+                "job"
+            )
+
+            gender = get_field(
+                hit,
+                "gender"
+            )
+
+            province = get_field(
+                hit,
+                "province"
+            )
+
+            person_id = get_field(
+                hit,
+                "id"
+            )
+
+            # -----------------------------------------------
+            # هذه المعلومات شفافة فقط
+            # -----------------------------------------------
+
+            fields = [
+
+                (
+                    "رقم التموينية",
+                    family_number
+                ),
+
+                (
+                    "الاسم",
+                    name
+                ),
+
+                (
+                    "المواليد",
+                    birth
+                ),
+
+                (
+                    "العمر",
+                    calculate_age(birth)
+                ),
+
+                (
+                    "الوظيفة",
+                    job
+                ),
+
+                (
+                    "تسلسل الفرد",
+                    sequence
+                ),
+            ]
+
+            if gender is not None:
+
+                fields.insert(
+                    4,
+                    (
+                        "الجنس",
+                        gender
+                    )
+                )
+
+            if province is not None:
+
+                fields.insert(
+                    5,
+                    (
+                        "المحافظة",
+                        province
+                    )
+                )
+
+            if person_id is not None:
+
+                fields.append(
+                    (
+                        "المعرف",
+                        person_id
+                    )
+                )
+
+            # بطاقة الفرد
+            # شفافة حتى تبقى صورة الجوكر واضحة خلفها
+            member_card = ft.Container(
+
+                padding=12,
+
+                margin=ft.margin.only(
+                    bottom=10
+                ),
+
+                bgcolor="#03191A99",
+
+                border=ft.border.all(
+                    1,
+                    "#00FF7F88"
+                ),
+
+                border_radius=16,
+
+                content=ft.Column(
+
+                    spacing=5,
+
+                    controls=[
+
+                        ft.Text(
+
+                            f"فرد {index}",
+
+                            color=GREEN,
+
+                            size=17,
+
+                            weight=ft.FontWeight.BOLD,
+
+                            text_align=(
+                                ft.TextAlign.RIGHT
+                            ),
+                        ),
+
+                        *[
+                            result_line(
+                                label,
+                                value
+                            )
+
+                            for label, value
+                            in fields
+                        ],
+                    ],
+                ),
+            )
+
+            member_controls.append(
+                member_card
+            )
+
+        # ====================================================
+        # عنوان جلب العائلة
+        # ====================================================
+
+        family_header = ft.Container(
+
+            padding=12,
+
+            margin=ft.margin.only(
+                bottom=10
+            ),
+
+            # شفاف
+            bgcolor="#021416AA",
+
+            border=ft.border.all(
+                1,
+                "#00F0FF88"
+            ),
+
+            border_radius=16,
+
+            content=ft.Column(
+
+                spacing=4,
+
+                controls=[
+
+                    ft.Text(
+
+                        "جلب العائلة",
+
+                        color=CYAN,
+
+                        size=22,
+
+                        weight=ft.FontWeight.BOLD,
+
+                        text_align=(
+                            ft.TextAlign.RIGHT
+                        ),
+                    ),
+
+                    ft.Text(
+
+                        f"رقم التموينية: {family_number}",
+
+                        color=WHITE,
+
+                        size=18,
+
+                        weight=ft.FontWeight.BOLD,
+
+                        text_align=(
+                            ft.TextAlign.RIGHT
+                        ),
+                    ),
+                ],
+            ),
+        )
+
+        # ====================================================
+        # طبقة المعلومات الشفافة
+        # ====================================================
+
+        family_overlay = ft.Container(
+
+            padding=14,
+
+            content=ft.Column(
+
+                spacing=0,
+
+                scroll=ft.ScrollMode.AUTO,
+
+                controls=[
+
+                    family_header,
+
+                    *member_controls,
+
+                    ft.Container(
+
+                        padding=12,
+
+                        # شفاف
+                        bgcolor="#021416AA",
+
+                        border=ft.border.all(
+                            1,
+                            "#00FF7F88"
+                        ),
+
+                        border_radius=15,
+
+                        content=ft.Text(
+
+                            f"• عدد الأفراد: ({len(family)})",
+
+                            color=GREEN,
+
+                            size=20,
+
+                            weight=ft.FontWeight.BOLD,
+
+                            text_align=(
+                                ft.TextAlign.RIGHT
+                            ),
+                        ),
+                    ),
+                ],
+            ),
+        )
+
+        # ====================================================
+        # صورة الجوكر
+        #
+        # مهم:
+        # opacity = 1.0
+        #
+        # لا توجد أي شفافية للصورة.
+        # ====================================================
+
+        if JOKER_IMAGE.exists():
+
+            joker_background = ft.Container(
+
+                expand=True,
+
+                border_radius=22,
+
+                clip_behavior=(
+                    ft.ClipBehavior.HARD_EDGE
+                ),
+
+                content=ft.Image(
+
+                    src="bg.jpg",
+
+                    # الصورة كاملة وواضحة
+                    opacity=1.0,
+
+                    fit=ft.ImageFit.COVER,
+
+                    expand=True,
+                ),
+            )
+
+        else:
+
+            joker_background = ft.Container(
+
+                expand=True,
+
+                bgcolor="#031313",
+
+                border_radius=22,
+
+                alignment=ft.alignment.center,
+
+                content=ft.Icon(
+
+                    ft.Icons.SECURITY,
+
+                    color=GREEN,
+
+                    size=90,
+                ),
+            )
+
+        # ====================================================
+        # النتيجة النهائية
+        #
+        # الصورة تحت
+        # المعلومات الشفافة فوقها
+        # ====================================================
+
+        family_result = ft.Container(
+
+            height=650,
+
+            margin=ft.margin.only(
+                bottom=18
+            ),
+
+            border=ft.border.all(
+                2,
+                GREEN
+            ),
+
+            border_radius=24,
+
+            clip_behavior=(
+                ft.ClipBehavior.HARD_EDGE
+            ),
+
+            content=ft.Stack(
+
+                expand=True,
+
+                controls=[
+
+                    # 1 - صورة الجوكر
+                    joker_background,
+
+                    # 2 - معلومات العائلة الشفافة
+                    family_overlay,
+                ],
+            ),
+        )
+
+        results_column.controls.append(
+            family_result
+        )
+
+        status_text.value = (
+
+            f"تم جلب عائلة رقم "
+            f"{family_number} "
+            f"— عدد الأفراد: "
+            f"{len(family)}"
+        )
+
+        page.update()
+
+    # ========================================================
+    # جلب السكن
+    # ========================================================
+
+    def fetch_housing(e=None):
+
+        query = (
+            search_field.value or ""
+        ).strip()
+
+        db_path = selected_db()
+
+        if not query:
+
+            status_text.value = (
+                "اكتب كلمة البحث أولاً."
+            )
+
+            page.update()
+            return
+
+        if (
+            not db_path
+            or not db_path.exists()
+        ):
+
+            status_text.value = (
+                "قاعدة البيانات غير موجودة."
+            )
+
+            page.update()
+            return
+
+        status_text.value = (
+            "جارِ جلب معلومات السكن..."
+        )
+
+        results_column.controls.clear()
+
+        page.update()
+
+        hits = search_database(
+            db_path,
+            query,
+            max_hits=30
+        )
+
+        if not hits:
+
+            status_text.value = (
+                "لم يتم العثور على بيانات سكن."
+            )
+
+            page.update()
+            return
+
+        for index, hit in enumerate(
+            hits,
+            1
+        ):
+
+            cols = hit["columns"]
+            row = hit["row"]
+
+            lines = []
+
+            preferred = [
+
+                "المحافظة",
+                "province",
+                "governorate",
+
+                "القضاء",
+                "الناحية",
+                "المنطقة",
+                "المحلة",
+
+                "الزقاق",
+                "الدار",
+                "العنوان",
+
+                "address",
+                "district",
+                "subdistrict",
+            ]
+
+            used = set()
+
+            for wanted in preferred:
+
+                for column in cols:
+
+                    if (
+                        norm(column)
+                        == norm(wanted)
+                        and column not in used
+                    ):
+
+                        lines.append(
+
+                            result_line(
+                                column,
+                                row[
+                                    cols.index(
+                                        column
+                                    )
+                                ]
+                            )
+                        )
+
+                        used.add(column)
+
+            if not lines:
+
+                for column, value in zip(
+                    cols,
+                    row
+                ):
+
+                    lines.append(
+
+                        result_line(
+                            column,
+                            value
+                        )
+                    )
+
+                    if len(lines) >= 12:
+                        break
+
+            results_column.controls.append(
+
+                ft.Container(
+
+                    padding=14,
+
+                    margin=ft.margin.only(
+                        bottom=10
+                    ),
+
+                    bgcolor="#03191A",
+
+                    border=ft.border.all(
+                        2,
+                        GREEN
+                    ),
+
+                    border_radius=22,
+
+                    content=ft.Column(
+
+                        spacing=6,
+
+                        controls=[
+
+                            ft.Text(
+
+                                f"بيانات السكن — نتيجة {index}",
+
+                                color=CYAN,
+
+                                size=19,
+
+                                weight=ft.FontWeight.BOLD,
+
+                                text_align=(
+                                    ft.TextAlign.RIGHT
+                                ),
+                            ),
+
+                            *lines,
+                        ],
+                    ),
+                )
+            )
+
+        status_text.value = (
+            f"تم العثور على {len(hits)} "
+            "نتيجة للسكن."
+        )
+
+        page.update()
+
+    # ========================================================
+    # التعليمات
+    # ========================================================
+
+    def close_dialog(dialog):
+
+        dialog.open = False
+
+        page.update()
 
     def show_instructions(e=None):
 
         dialog = ft.AlertDialog(
+
             modal=True,
 
+            bgcolor="#03181A",
+
             title=ft.Text(
+
                 "تعليمات",
-                color=NEON,
-                text_align=ft.TextAlign.RIGHT,
+
+                color=GREEN,
+
+                weight=ft.FontWeight.BOLD,
+
+                text_align=(
+                    ft.TextAlign.RIGHT
+                ),
             ),
 
             content=ft.Container(
+
                 width=340,
 
                 content=ft.Text(
-                    "1. اختر المحافظة المستهدفة.\n\n"
-                    "2. اكتب الاسم أو الرقم أو المعرف.\n\n"
-                    "3. اضغط على «بدء البحث الشامل».\n\n"
-                    "4. ستظهر النتائج الموجودة داخل قواعد البيانات المحلية.\n\n"
-                    "قواعد البيانات مدمجة داخل التطبيق ولا تحتاج إلى تحميل أثناء التشغيل.",
+
+                    "1) اختر المحافظة.\n"
+                    "2) اكتب الاسم أو الرقم أو المعرف.\n"
+                    "3) اضغط بدء البحث الشامل للبحث العام.\n"
+                    "4) استخدم جلب العائلة لإظهار أفراد نفس رقم التموينية.\n"
+                    "5) استخدم جلب السكن لعرض بيانات السكن المتوفرة.",
+
                     color=WHITE,
-                    size=15,
-                    text_align=ft.TextAlign.RIGHT,
+
+                    size=16,
+
+                    text_align=(
+                        ft.TextAlign.RIGHT
+                    ),
                 ),
             ),
 
             actions=[
+
                 ft.TextButton(
+
                     "إغلاق",
-                    on_click=lambda e: close_dialog(),
+
+                    on_click=lambda e:
+                    close_dialog(dialog),
+
+                    style=ft.ButtonStyle(
+                        color=GREEN
+                    ),
                 )
             ],
         )
@@ -821,654 +1867,667 @@ def main(page: ft.Page):
 
         page.update()
 
-    def close_dialog():
-
-        if page.dialog:
-            page.dialog.open = False
-            page.update()
-
-    # -----------------------------------------------------
+    # ========================================================
     # المطور
-    # -----------------------------------------------------
+    # ========================================================
 
     def open_developer(e=None):
 
         page.launch_url(
-            "https://t.me/UB_515"
+            TELEGRAM_URL
         )
 
-    # -----------------------------------------------------
+    # ========================================================
     # القائمة الجانبية
-    # -----------------------------------------------------
+    # ========================================================
+
+    def close_drawer(e=None):
+
+        drawer.open = False
+
+        page.update()
 
     drawer = ft.NavigationDrawer(
+
+        bgcolor="#031313",
+
         controls=[
+
             ft.Container(
-                height=110,
-                bgcolor="#03100E",
+
                 padding=20,
+
                 content=ft.Column(
+
+                    spacing=14,
+
                     controls=[
-                        ft.Icon(
-                            name=ft.Icons.SECURITY,
-                            color=NEON,
-                            size=45,
-                        ),
 
                         ft.Text(
-                            "منظومة بيانات العراق",
-                            color=NEON,
-                            size=18,
+
+                            APP_TITLE,
+
+                            color=GREEN,
+
+                            size=20,
+
                             weight=ft.FontWeight.BOLD,
-                            text_align=ft.TextAlign.RIGHT,
+
+                            text_align=(
+                                ft.TextAlign.RIGHT
+                            ),
+                        ),
+
+                        ft.Divider(
+                            color=GREEN
+                        ),
+
+                        ft.ListTile(
+
+                            leading=ft.Icon(
+                                ft.Icons.CODE,
+                                color=GREEN
+                            ),
+
+                            title=ft.Text(
+
+                                "المطور",
+
+                                color=WHITE,
+
+                                size=17,
+
+                                text_align=(
+                                    ft.TextAlign.RIGHT
+                                ),
+                            ),
+
+                            on_click=open_developer,
+                        ),
+
+                        ft.ListTile(
+
+                            leading=ft.Icon(
+                                ft.Icons.INFO_OUTLINE,
+                                color=GREEN
+                            ),
+
+                            title=ft.Text(
+
+                                "تعليمات",
+
+                                color=WHITE,
+
+                                size=17,
+
+                                text_align=(
+                                    ft.TextAlign.RIGHT
+                                ),
+                            ),
+
+                            on_click=show_instructions,
                         ),
                     ],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-            ),
-
-            ft.Divider(
-                color=NEON_DARK,
-                height=1,
-            ),
-
-            ft.NavigationDrawerDestination(
-                label="المطور",
-                icon=ft.Icons.CODE,
-            ),
-
-            ft.NavigationDrawerDestination(
-                label="تعليمات",
-                icon=ft.Icons.INFO_OUTLINE,
-            ),
+            )
         ],
     )
 
     page.drawer = drawer
 
-    def drawer_change(e):
+    def open_drawer(e=None):
 
-        index = e.control.selected_index
-
-        if index == 0:
-            open_developer()
-
-        elif index == 1:
-            show_instructions()
-
-        e.control.selected_index = -1
-
-        page.drawer.open = False
+        drawer.open = True
 
         page.update()
 
-    drawer.on_change = drawer_change
-
-    # -----------------------------------------------------
-    # زر القائمة ☰
-    # -----------------------------------------------------
+    # ========================================================
+    # الهيدر
+    # ========================================================
 
     menu_button = ft.IconButton(
+
         icon=ft.Icons.MENU,
-        icon_color=NEON,
-        icon_size=31,
+
+        icon_color=WHITE,
+
+        icon_size=34,
+
         tooltip="القائمة",
-        on_click=lambda e: open_drawer(),
+
+        on_click=open_drawer,
     )
-
-    def open_drawer():
-
-        page.drawer.open = True
-
-        page.update()
-
-    # -----------------------------------------------------
-    # اختيار المحافظة
-    # -----------------------------------------------------
-
-    province_options = [
-        ft.dropdown.Option(
-            "كل المحافظات"
-        )
-    ]
-
-    for name, _ in PROVINCES:
-
-        province_options.append(
-            ft.dropdown.Option(name)
-        )
-
-    province_dropdown = ft.Dropdown(
-        value=selected_province,
-
-        options=province_options,
-
-        text_style=ft.TextStyle(
-            color=WHITE,
-            size=17,
-            weight=ft.FontWeight.BOLD,
-        ),
-
-        border_color=NEON,
-
-        focused_border_color=NEON,
-
-        bgcolor="#031815",
-
-        border_radius=15,
-
-        content_padding=16,
-
-        text_align=ft.TextAlign.RIGHT,
-
-        on_change=lambda e: update_province(
-            e.control.value
-        ),
-    )
-
-    def update_province(value):
-
-        nonlocal selected_province
-
-        selected_province = value
-
-    # -----------------------------------------------------
-    # حقل البحث
-    # -----------------------------------------------------
-
-    search_field = ft.TextField(
-
-        hint_text="الاسم، الرقم، أو المعرف...",
-
-        hint_style=ft.TextStyle(
-            color="#72817D",
-            size=15,
-        ),
-
-        text_style=ft.TextStyle(
-            color=WHITE,
-            size=17,
-        ),
-
-        text_align=ft.TextAlign.RIGHT,
-
-        rtl=True,
-
-        border_color=NEON,
-
-        focused_border_color=NEON,
-
-        cursor_color=NEON,
-
-        bgcolor="#031815",
-
-        border_radius=15,
-
-        content_padding=16,
-
-        prefix_icon=ft.Icons.SEARCH,
-
-        on_submit=lambda e: start_search(),
-    )
-
-    # -----------------------------------------------------
-    # منطقة النتائج
-    # -----------------------------------------------------
-
-    results_column = ft.Column(
-        controls=[],
-        spacing=0,
-    )
-
-    result_title = ft.Text(
-        "سجل النتائج والبيانات المسترجعة:",
-        color=CYAN,
-        size=20,
-        weight=ft.FontWeight.BOLD,
-        text_align=ft.TextAlign.RIGHT,
-    )
-
-    result_count = ft.Text(
-        "",
-        color=NEON,
-        size=16,
-        weight=ft.FontWeight.BOLD,
-        text_align=ft.TextAlign.RIGHT,
-    )
-
-    # -----------------------------------------------------
-    # بدء البحث
-    # -----------------------------------------------------
-
-    def start_search():
-
-        text = search_field.value.strip()
-
-        if not text:
-
-            show_message(
-                "اكتب الاسم أو الرقم أو المعرف أولاً."
-            )
-
-            return
-
-        results_column.controls.clear()
-
-        result_count.value = "جاري البحث..."
-
-        page.update()
-
-        try:
-
-            results = perform_search(
-                selected_province,
-                text,
-            )
-
-        except Exception as ex:
-
-            results = []
-
-            show_message(
-                f"حدث خطأ أثناء البحث: {ex}"
-            )
-
-        if results:
-
-            result_count.value = (
-                f"تم العثور على {len(results)} نتيجة"
-            )
-
-            for item in results:
-                results_column.controls.append(
-                    result_card(item)
-                )
-
-        else:
-
-            result_count.value = (
-                "لم يتم العثور على نتائج مطابقة"
-            )
-
-            results_column.controls.append(
-                ft.Container(
-                    padding=25,
-
-                    border=ft.Border.all(
-                        1,
-                        NEON_DARK,
-                    ),
-
-                    border_radius=15,
-
-                    bgcolor="#03110F",
-
-                    content=ft.Column(
-                        controls=[
-                            ft.Icon(
-                                name=ft.Icons.SEARCH_OFF,
-                                color=GRAY,
-                                size=45,
-                            ),
-
-                            ft.Text(
-                                "لا توجد نتائج مطابقة للبحث.",
-                                color=WHITE,
-                                size=17,
-                                text_align=ft.TextAlign.CENTER,
-                            ),
-                        ],
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                        alignment=ft.MainAxisAlignment.CENTER,
-                    ),
-                )
-            )
-
-        page.update()
-
-    # -----------------------------------------------------
-    # زر البحث
-    # -----------------------------------------------------
-
-    search_button = ft.Container(
-
-        height=72,
-
-        border_radius=18,
-
-        bgcolor=NEON,
-
-        ink=True,
-
-        on_click=lambda e: start_search(),
-
-        content=ft.Row(
-            controls=[
-                ft.Icon(
-                    name=ft.Icons.SEARCH,
-                    color="#00120D",
-                    size=34,
-                ),
-
-                ft.Text(
-                    "بدء البحث الشامل",
-                    color="#00120D",
-                    size=23,
-                    weight=ft.FontWeight.BOLD,
-                ),
-            ],
-
-            alignment=ft.MainAxisAlignment.CENTER,
-
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-
-            spacing=10,
-        ),
-    )
-
-    # -----------------------------------------------------
-    # أزرار التعليمات والمطور
-    # -----------------------------------------------------
-
-    instructions_button = ft.Container(
-
-        height=62,
-
-        expand=True,
-
-        border=ft.Border.all(
-            2,
-            NEON,
-        ),
-
-        border_radius=18,
-
-        bgcolor="#031815",
-
-        ink=True,
-
-        on_click=show_instructions,
-
-        content=ft.Row(
-            controls=[
-                ft.Icon(
-                    name=ft.Icons.INFO,
-                    color=WHITE,
-                    size=28,
-                ),
-
-                ft.Text(
-                    "تعليمات",
-                    color=WHITE,
-                    size=18,
-                    weight=ft.FontWeight.BOLD,
-                ),
-            ],
-
-            alignment=ft.MainAxisAlignment.CENTER,
-
-            spacing=10,
-        ),
-    )
-
-    developer_button = ft.Container(
-
-        height=62,
-
-        expand=True,
-
-        border=ft.Border.all(
-            2,
-            NEON,
-        ),
-
-        border_radius=18,
-
-        bgcolor="#031815",
-
-        ink=True,
-
-        on_click=open_developer,
-
-        content=ft.Row(
-            controls=[
-                ft.Icon(
-                    name=ft.Icons.CODE,
-                    color=WHITE,
-                    size=30,
-                ),
-
-                ft.Text(
-                    "المطور",
-                    color=WHITE,
-                    size=18,
-                    weight=ft.FontWeight.BOLD,
-                ),
-            ],
-
-            alignment=ft.MainAxisAlignment.CENTER,
-
-            spacing=10,
-        ),
-    )
-
-    # -----------------------------------------------------
-    # الهيدر
-    # -----------------------------------------------------
 
     header = ft.Container(
 
         padding=ft.padding.only(
             left=18,
             right=18,
-            top=12,
-            bottom=12,
-        ),
-
-        border=ft.Border(
-            bottom=ft.BorderSide(
-                1,
-                NEON_DARK,
-            )
+            top=16,
+            bottom=16
         ),
 
         content=ft.Row(
 
+            alignment=(
+                ft.MainAxisAlignment
+                .SPACE_BETWEEN
+            ),
+
+            vertical_alignment=(
+                ft.CrossAxisAlignment.CENTER
+            ),
+
             controls=[
 
+                # الثلاث خطوط
                 menu_button,
 
-                ft.Container(
-                    expand=True,
+                ft.Row(
 
-                    content=ft.Row(
-                        controls=[
-                            ft.Icon(
-                                name=ft.Icons.SECURITY,
-                                color=NEON,
-                                size=55,
-                            ),
+                    spacing=10,
 
-                            ft.Text(
-                                "منظومة بيانات العراق",
-                                color=NEON,
-                                size=25,
-                                weight=ft.FontWeight.BOLD,
-                                text_align=ft.TextAlign.RIGHT,
-                            ),
-                        ],
-
-                        alignment=ft.MainAxisAlignment.CENTER,
-
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-
-                        spacing=10,
+                    vertical_alignment=(
+                        ft.CrossAxisAlignment.CENTER
                     ),
+
+                    controls=[
+
+                        ft.Icon(
+
+                            ft.Icons.SHIELD,
+
+                            color=GREEN,
+
+                            size=42,
+                        ),
+
+                        ft.Text(
+
+                            APP_TITLE,
+
+                            color=GREEN,
+
+                            size=25,
+
+                            weight=(
+                                ft.FontWeight.BOLD
+                            ),
+
+                            text_align=(
+                                ft.TextAlign.CENTER
+                            ),
+                        ),
+                    ],
                 ),
 
                 ft.Icon(
-                    name=ft.Icons.SHIELD,
-                    color=NEON_DARK,
-                    size=35,
+
+                    ft.Icons.SEARCH,
+
+                    color=WHITE,
+
+                    size=34,
                 ),
             ],
-
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
         ),
     )
 
-    # -----------------------------------------------------
-    # عنوان المحافظة
-    # -----------------------------------------------------
+    # ========================================================
+    # زر البحث
+    # ========================================================
 
-    province_label = ft.Text(
-        "اختر المحافظة المستهدفة",
-        color=NEON,
-        size=19,
-        weight=ft.FontWeight.BOLD,
-        text_align=ft.TextAlign.RIGHT,
-    )
+    search_button = ft.ElevatedButton(
 
-    search_label = ft.Text(
-        "كلمة البحث",
-        color=NEON,
-        size=19,
-        weight=ft.FontWeight.BOLD,
-        text_align=ft.TextAlign.RIGHT,
-    )
+        content=ft.Row(
 
-    # -----------------------------------------------------
-    # المحتوى الرئيسي
-    # -----------------------------------------------------
+            alignment=(
+                ft.MainAxisAlignment.CENTER
+            ),
 
-    main_panel = ft.Container(
+            spacing=12,
 
-        margin=ft.margin.only(
-            left=18,
-            right=18,
-            top=25,
-            bottom=35,
+            controls=[
+
+                ft.Icon(
+                    ft.Icons.SEARCH,
+                    color="#00110A",
+                    size=30
+                ),
+
+                ft.Text(
+
+                    "بدء البحث الشامل",
+
+                    color="#00110A",
+
+                    size=23,
+
+                    weight=(
+                        ft.FontWeight.BOLD
+                    ),
+                ),
+            ],
         ),
 
-        padding=20,
+        style=ft.ButtonStyle(
 
-        bgcolor="#02110F",
+            bgcolor=GREEN,
 
-        border=ft.Border.all(
+            color="#00110A",
+
+            shape=ft.RoundedRectangleBorder(
+                radius=20
+            ),
+
+            padding=ft.padding.symmetric(
+                vertical=18,
+                horizontal=20
+            ),
+        ),
+
+        on_click=start_search,
+
+        width=650,
+    )
+
+    # ========================================================
+    # زر جلب العائلة
+    # ========================================================
+
+    family_button = ft.ElevatedButton(
+
+        text="جلب العائلة",
+
+        style=ft.ButtonStyle(
+
+            bgcolor="#073A28",
+
+            color=WHITE,
+
+            side=ft.BorderSide(
+                2,
+                GREEN
+            ),
+
+            shape=ft.RoundedRectangleBorder(
+                radius=18
+            ),
+
+            padding=ft.padding.symmetric(
+                vertical=14,
+                horizontal=24
+            ),
+        ),
+
+        on_click=fetch_family,
+
+        expand=True,
+    )
+
+    # ========================================================
+    # زر جلب السكن
+    # ========================================================
+
+    housing_button = ft.ElevatedButton(
+
+        text="جلب السكن",
+
+        style=ft.ButtonStyle(
+
+            bgcolor="#073A28",
+
+            color=WHITE,
+
+            side=ft.BorderSide(
+                2,
+                GREEN
+            ),
+
+            shape=ft.RoundedRectangleBorder(
+                radius=18
+            ),
+
+            padding=ft.padding.symmetric(
+                vertical=14,
+                horizontal=24
+            ),
+        ),
+
+        on_click=fetch_housing,
+
+        expand=True,
+    )
+
+    # ========================================================
+    # التعليمات
+    # ========================================================
+
+    instructions_button = ft.OutlinedButton(
+
+        content=ft.Row(
+
+            alignment=(
+                ft.MainAxisAlignment.CENTER
+            ),
+
+            controls=[
+
+                ft.Icon(
+                    ft.Icons.INFO,
+                    color=WHITE,
+                    size=25
+                ),
+
+                ft.Text(
+
+                    "تعليمات",
+
+                    color=WHITE,
+
+                    size=18,
+
+                    weight=(
+                        ft.FontWeight.BOLD
+                    ),
+                ),
+            ],
+        ),
+
+        style=ft.ButtonStyle(
+
+            side=ft.BorderSide(
+                2,
+                GREEN
+            ),
+
+            shape=ft.RoundedRectangleBorder(
+                radius=18
+            ),
+
+            padding=ft.padding.symmetric(
+                vertical=13,
+                horizontal=18
+            ),
+        ),
+
+        on_click=show_instructions,
+
+        expand=True,
+    )
+
+    # ========================================================
+    # المطور
+    # ========================================================
+
+    developer_button = ft.OutlinedButton(
+
+        content=ft.Row(
+
+            alignment=(
+                ft.MainAxisAlignment.CENTER
+            ),
+
+            controls=[
+
+                ft.Icon(
+                    ft.Icons.CODE,
+                    color=WHITE,
+                    size=25
+                ),
+
+                ft.Text(
+
+                    "المطور",
+
+                    color=WHITE,
+
+                    size=18,
+
+                    weight=(
+                        ft.FontWeight.BOLD
+                    ),
+                ),
+            ],
+        ),
+
+        style=ft.ButtonStyle(
+
+            side=ft.BorderSide(
+                2,
+                GREEN
+            ),
+
+            shape=ft.RoundedRectangleBorder(
+                radius=18
+            ),
+
+            padding=ft.padding.symmetric(
+                vertical=13,
+                horizontal=18
+            ),
+        ),
+
+        on_click=open_developer,
+
+        expand=True,
+    )
+
+    # ========================================================
+    # اللوحة الرئيسية
+    # ========================================================
+
+    panel = ft.Container(
+
+        margin=ft.margin.symmetric(
+            horizontal=14,
+            vertical=10
+        ),
+
+        padding=ft.padding.symmetric(
+            horizontal=20,
+            vertical=24
+        ),
+
+        bgcolor="#021619",
+
+        border=ft.border.all(
             2,
-            NEON_DARK,
+            GREEN
         ),
 
         border_radius=30,
 
+        shadow=ft.BoxShadow(
+
+            blur_radius=24,
+
+            spread_radius=2,
+
+            color="#003E28",
+
+            offset=ft.Offset(0, 0),
+        ),
+
         content=ft.Column(
+
+            spacing=14,
+
+            horizontal_alignment=(
+                ft.CrossAxisAlignment.STRETCH
+            ),
 
             controls=[
 
-                province_label,
+                ft.Text(
 
-                province_dropdown,
+                    "اختر المحافظة المستهدفة",
 
-                ft.Container(
-                    height=10
+                    color=GREEN,
+
+                    size=21,
+
+                    weight=(
+                        ft.FontWeight.BOLD
+                    ),
+
+                    text_align=(
+                        ft.TextAlign.RIGHT
+                    ),
                 ),
 
-                search_label,
+                province_dd,
+
+                ft.Text(
+
+                    "كلمة البحث",
+
+                    color=GREEN,
+
+                    size=21,
+
+                    weight=(
+                        ft.FontWeight.BOLD
+                    ),
+
+                    text_align=(
+                        ft.TextAlign.RIGHT
+                    ),
+                ),
 
                 search_field,
 
-                ft.Container(
-                    height=14
-                ),
-
                 search_button,
 
-                ft.Container(
-                    height=14
-                ),
-
                 ft.Row(
-                    controls=[
-                        developer_button,
-                        instructions_button,
-                    ],
 
                     spacing=14,
+
+                    controls=[
+                        instructions_button,
+                        developer_button,
+                    ],
                 ),
 
-                ft.Container(
-                    height=10
+                # أزرار العمليات الإضافية
+                ft.Row(
+
+                    spacing=14,
+
+                    controls=[
+                        family_button,
+                        housing_button,
+                    ],
                 ),
 
                 ft.Text(
+
                     "اضغط على زر المطور للتواصل",
-                    color="#84938F",
-                    size=15,
+
+                    color="#8EA1A1",
+
+                    size=16,
+
                     italic=True,
-                    text_align=ft.TextAlign.CENTER,
+
+                    text_align=(
+                        ft.TextAlign.CENTER
+                    ),
                 ),
 
                 ft.Divider(
-                    color=NEON_DARK,
+
+                    height=20,
+
                     thickness=1,
-                    height=30,
+
+                    color=GREEN,
                 ),
 
-                result_title,
+                results_title,
 
-                ft.Container(
-                    height=8
-                ),
+                status_text,
 
-                result_count,
-
-                ft.Container(
-                    height=8
-                ),
-
+                # هنا تظهر صورة الجوكر
+                # وهنا تظهر نتائج البحث
                 results_column,
             ],
-
-            spacing=7,
-
-            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         ),
     )
 
-    # -----------------------------------------------------
-    # الخلفية العامة
-    # -----------------------------------------------------
+    # ========================================================
+    # الصورة الأولى
+    # ========================================================
 
-    background = ft.Container(
+    clear_results()
+
+    # ========================================================
+    # خلفية الواجهة
+    # ========================================================
+
+    if UI_BACKGROUND.exists():
+
+        background = ft.Image(
+
+            src="ui_background.png",
+
+            fit=ft.ImageFit.COVER,
+
+            expand=True,
+        )
+
+    else:
+
+        background = ft.Container(
+
+            bgcolor=BG,
+
+            expand=True,
+        )
+
+    # ========================================================
+    # Stack النهائي
+    # ========================================================
+
+    content = ft.Stack(
 
         expand=True,
 
-        bgcolor=BG,
+        controls=[
 
-        content=ft.Column(
+            ft.Container(
 
-            controls=[
+                content=background,
 
-                header,
+                expand=True,
+            ),
 
-                main_panel,
+            ft.Column(
 
-            ],
+                spacing=0,
 
-            spacing=0,
+                scroll=ft.ScrollMode.AUTO,
 
-            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
-        ),
+                controls=[
+
+                    header,
+
+                    panel,
+                ],
+            ),
+        ],
     )
 
-    page.add(background)
+    page.add(content)
 
 
-# =========================================================
+# ============================================================
 # تشغيل التطبيق
-# =========================================================
+# ============================================================
 
-ft.run(
-    main,
-    assets_dir="assets",
-)
+if __name__ == "__main__":
+
+    ft.run(
+        main,
+        assets_dir=str(ASSETS_DIR)
+    )
