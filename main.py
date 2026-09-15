@@ -7,7 +7,7 @@ import flet as ft
 
 
 GITHUB_RELEASE_URL = (
-    "https://github.com/bihoooo29-art/iraq-db-app/releases/download/v1.0.0"
+    "https://github.com/bihoooo29-art/iraq-secure-db/releases/download/v1.0.0"
 )
 
 DB_DIR = Path(os.getenv("FLET_APP_STORAGE_DATA", "."))
