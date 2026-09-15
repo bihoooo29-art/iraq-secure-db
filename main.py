@@ -895,7 +895,7 @@ def main(page: ft.Page):
 
         "سجل النتائج والبيانات المسترجعة:",
 
-        color=CYAN,
+        color=GREEN,
 
         size=20,
 
@@ -1070,6 +1070,17 @@ def main(page: ft.Page):
                     1
                 )
             ]
+        )
+
+        # أزرار جلب العائلة وجلب السكن تظهر تحت النتائج
+        results_column.controls.append(
+            ft.Row(
+                spacing=14,
+                controls=[
+                    family_button,
+                    housing_button,
+                ],
+            )
         )
 
         page.update()
@@ -1998,6 +2009,25 @@ def main(page: ft.Page):
         on_click=open_drawer,
     )
 
+    # درع فيه قفل مثل الصورة المرجعية
+    shield_with_lock = ft.Stack(
+        alignment=ft.alignment.center,
+        controls=[
+
+            ft.Icon(
+                ft.Icons.SHIELD,
+                color=GREEN,
+                size=42,
+            ),
+
+            ft.Icon(
+                ft.Icons.LOCK,
+                color="#021619",
+                size=16,
+            ),
+        ],
+    )
+
     header = ft.Container(
 
         padding=ft.padding.only(
@@ -2020,40 +2050,28 @@ def main(page: ft.Page):
 
             controls=[
 
-                # الثلاث خطوط
+                # زر الثلاث خطوط - محفوظ
                 menu_button,
 
+                # الدرع والعنوان بالمنتصف مثل الصورة
                 ft.Row(
-
+                    expand=True,
+                    alignment=(
+                        ft.MainAxisAlignment.CENTER
+                    ),
                     spacing=10,
-
                     vertical_alignment=(
                         ft.CrossAxisAlignment.CENTER
                     ),
-
                     controls=[
-
-                        ft.Icon(
-
-                            ft.Icons.SHIELD,
-
-                            color=GREEN,
-
-                            size=42,
-                        ),
-
+                        shield_with_lock,
                         ft.Text(
-
                             APP_TITLE,
-
                             color=GREEN,
-
                             size=25,
-
                             weight=(
                                 ft.FontWeight.BOLD
                             ),
-
                             text_align=(
                                 ft.TextAlign.CENTER
                             ),
@@ -2061,14 +2079,8 @@ def main(page: ft.Page):
                     ],
                 ),
 
-                ft.Icon(
-
-                    ft.Icons.SEARCH,
-
-                    color=WHITE,
-
-                    size=34,
-                ),
+                # موازنة حتى يبقى العنوان بالمنتصف تماماً
+                ft.Container(width=48),
             ],
         ),
     )
@@ -2141,7 +2153,7 @@ def main(page: ft.Page):
 
         style=ft.ButtonStyle(
 
-            bgcolor="#073A28",
+            bgcolor="#99021619",
 
             color=WHITE,
 
@@ -2175,7 +2187,7 @@ def main(page: ft.Page):
 
         style=ft.ButtonStyle(
 
-            bgcolor="#073A28",
+            bgcolor="#99021619",
 
             color=WHITE,
 
@@ -2329,7 +2341,7 @@ def main(page: ft.Page):
             vertical=24
         ),
 
-        bgcolor="#021619",
+        bgcolor="#CC021619",
 
         border=ft.border.all(
             2,
@@ -2409,16 +2421,6 @@ def main(page: ft.Page):
                     ],
                 ),
 
-                # أزرار العمليات الإضافية
-                ft.Row(
-
-                    spacing=14,
-
-                    controls=[
-                        family_button,
-                        housing_button,
-                    ],
-                ),
 
                 ft.Text(
 
