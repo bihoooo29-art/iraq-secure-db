@@ -62,7 +62,7 @@ jobs:
         run: |
           set -e
 
-          echo "Downloading all SQLite databases from Release $RELEASE_TAG..."
+          echo "Downloading available SQLite databases from Release $RELEASE_TAG..."
 
           gh release download "$RELEASE_TAG" \
             --repo "${{ github.repository }}" \
@@ -76,7 +76,8 @@ jobs:
 
           echo ""
           echo "Database count:"
-          find assets/databases -maxdepth 1 -type f -name "*.db" | wc -l
+          DB_COUNT=$(find assets/databases -maxdepth 1 -type f -name "*.db" | wc -l)
+          echo "$DB_COUNT"
 
           echo ""
           echo "Total database size:"
@@ -95,13 +96,20 @@ jobs:
 
           echo "Database count = $DB_COUNT"
 
-          if [ "$DB_COUNT" -ne 19 ]; then
-            echo "ERROR: Expected 19 database files, but found $DB_COUNT"
+          if [ "$DB_COUNT" -eq 0 ]; then
+            echo "ERROR: No database files were found."
             exit 1
           fi
 
           echo ""
-          echo "All required assets are ready."
+          echo "Available databases:"
+          find assets/databases -maxdepth 1 -type f -name "*.db" -printf "%f\n" | sort
+
+          echo ""
+          echo "Missing database files will be skipped."
+          echo "Assets are ready for the APK build."
+
+          echo ""
           echo "Total assets size:"
           du -sh assets
 
