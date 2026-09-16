@@ -1,139 +1,51 @@
 name: Build Android APK
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-      - master
 
-  workflow_dispatch:
-
-env:
-  BUILD_NUMBER: 1
-  BUILD_VERSION: 1.0.0
-  PYTHON_VERSION: 3.12.2
-  RELEASE_TAG: v1.0.0
+permissions:
+  contents: read
 
 jobs:
-  build-apk:
+  build:
+    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Setup Java JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Prepare App Assets
-        run: |
-          set -e
-
-          echo "Preparing Flet assets..."
-
-          mkdir -p assets/databases
-
-          echo "Copying background..."
-          cp bg.jpg assets/bg.jpg
-
-          echo "Copying app icon..."
-          cp icon.png assets/icon.png
-
-          echo ""
-          echo "Assets:"
-          ls -lh assets/
-
-      - name: Prepare Bundled Databases
+      - name: Download databases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -e
-
-          echo "Downloading available SQLite databases from Release $RELEASE_TAG..."
-
-          gh release download "$RELEASE_TAG" \
+          mkdir -p assets/databases
+          gh release download 1.0.0 \
             --repo "${{ github.repository }}" \
             --pattern "*.db" \
-            --dir assets/databases \
-            --clobber
+            --dir assets/databases
 
-          echo ""
-          echo "Downloaded databases:"
-          ls -lh assets/databases
-
-          echo ""
-          echo "Database count:"
-          DB_COUNT=$(find assets/databases -maxdepth 1 -type f -name "*.db" | wc -l)
-          echo "$DB_COUNT"
-
-          echo ""
-          echo "Total database size:"
-          du -sh assets/databases
-
-      - name: Verify Assets Before Build
+      - name: Check databases
         run: |
-          set -e
-
-          echo "Checking required files..."
-
-          test -f assets/bg.jpg
-          test -f assets/icon.png
-
-          DB_COUNT=$(find assets/databases -maxdepth 1 -type f -name "*.db" | wc -l)
-
-          echo "Database count = $DB_COUNT"
-
-          if [ "$DB_COUNT" -eq 0 ]; then
-            echo "ERROR: No database files were found."
-            exit 1
-          fi
-
-          echo ""
-          echo "Available databases:"
+          echo "Database files:"
           find assets/databases -maxdepth 1 -type f -name "*.db" -printf "%f\n" | sort
 
-          echo ""
-          echo "Missing database files will be skipped."
-          echo "Assets are ready for the APK build."
-
-          echo ""
-          echo "Total assets size:"
-          du -sh assets
-
-      - name: Build APK with Flet
-        run: |
-          flet build apk \
-            --yes \
-            --verbose \
-            --build-number="$BUILD_NUMBER" \
-            --build-version="$BUILD_VERSION"
-
-      - name: Show APK Size
-        run: |
-          echo "Generated APK files:"
-          ls -lh build/apk/*.apk
-
-          echo ""
-          echo "APK size:"
-          du -h build/apk/*.apk
+      - name: Build Flet APK
+        id: build
+        uses: flet-dev/flet-build-action@v1
+        with:
+          target: apk
+          runner-python-version: "3.14"
+          bundled-python-version: "3.14"
+          build-number: ${{ github.run_number }}
 
       - name: Upload APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: iraq-db-app-apk
-          path: build/apk/*.apk
+          name: iraq-data-app-apk
+          path: ${{ steps.build.outputs.archive-path }}
           if-no-files-found: error
           overwrite: true
