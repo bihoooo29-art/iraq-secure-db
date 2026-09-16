@@ -146,6 +146,7 @@ ALIASES = {
     ],
 }
 
+
 def norm(value):
     if value is None:
         return ""
@@ -160,6 +161,7 @@ def norm(value):
 
     return text
 
+
 def clean_text(value):
     if value is None:
         return "None"
@@ -167,11 +169,14 @@ def clean_text(value):
     text = str(value).strip()
     return text if text else "None"
 
+
 def quote_ident(value):
     return '"' + str(value).replace('"', '""') + '"'
 
+
 def get_db_filename(province):
     return PROVINCE_FILES.get(province)
+
 
 def get_local_db_path(province):
     filename = get_db_filename(province)
@@ -181,8 +186,10 @@ def get_local_db_path(province):
 
     return DB_DIR / filename
 
+
 def get_cloud_db_url(filename):
     return f"{GITHUB_RELEASE_URL}/{filename}"
+
 
 def download_db_for_province(province):
     filename = get_db_filename(province)
@@ -256,6 +263,7 @@ def download_db_for_province(province):
 
         return None
 
+
 async def find_db_for_province(province):
     local_path = get_local_db_path(province)
 
@@ -271,6 +279,7 @@ async def find_db_for_province(province):
         province
     )
 
+
 def safe_connect(db_path):
     db_path = Path(db_path).resolve()
 
@@ -282,6 +291,7 @@ def safe_connect(db_path):
         timeout=30,
         check_same_thread=False
     )
+
 
 def table_names(conn):
     rows = conn.execute(
@@ -296,12 +306,14 @@ def table_names(conn):
 
     return [row[0] for row in rows]
 
+
 def columns(conn, table):
     rows = conn.execute(
         f'PRAGMA table_info({quote_ident(table)})'
     ).fetchall()
 
     return [row[1] for row in rows]
+
 
 def find_alias_column(cols, aliases):
     normalized = {
@@ -332,11 +344,13 @@ def find_alias_column(cols, aliases):
 
     return None
 
+
 def field_map(cols):
     return {
         key: find_alias_column(cols, aliases)
         for key, aliases in ALIASES.items()
     }
+
 
 def search_database(db_path, query, max_hits=30):
     results = []
@@ -420,6 +434,7 @@ def search_database(db_path, query, max_hits=30):
 
     return results
 
+
 def get_field(hit, key):
     fmap = hit.get(
         "fields",
@@ -443,6 +458,7 @@ def get_field(hit, key):
         return row[index]
 
     return None
+
 
 def extract_family_number(hit):
     value = get_field(
@@ -484,6 +500,7 @@ def extract_family_number(hit):
 
     return None
 
+
 def year_from_value(value):
     if value is None:
         return None
@@ -500,6 +517,7 @@ def year_from_value(value):
 
     return int(match.group())
 
+
 def calculate_age(value):
     year = year_from_value(value)
 
@@ -510,6 +528,7 @@ def calculate_age(value):
     age = current_year - year
 
     return str(max(0, age))
+
 
 def family_rows(
     db_path,
@@ -621,6 +640,7 @@ def family_rows(
 
     return results
 
+
 def result_line(label, value):
     return ft.Container(
         bgcolor="#03191A99",
@@ -653,6 +673,7 @@ def result_line(label, value):
             ],
         ),
     )
+
 
 def cyber_result_card(hit, index):
     fields = [
@@ -745,27 +766,6 @@ def cyber_result_card(hit, index):
         ],
     )
 
-    if JOKER_IMAGE.exists():
-        joker = ft.Image(
-            src="bg.jpg",
-            width=150,
-            height=150,
-            fit=ft.ImageFit.COVER,
-            opacity=1.0,
-        )
-    else:
-        joker = ft.Container(
-            width=150,
-            height=150,
-            bgcolor="#031313",
-            alignment=ft.alignment.center,
-            content=ft.Icon(
-                ft.Icons.SECURITY,
-                color=GREEN,
-                size=64,
-            ),
-        )
-
     return ft.Container(
         padding=14,
         margin=ft.margin.only(
@@ -777,17 +777,9 @@ def cyber_result_card(hit, index):
             GREEN
         ),
         border_radius=24,
-        content=ft.Row(
-            spacing=14,
-            controls=[
-                joker,
-                ft.Container(
-                    expand=True,
-                    content=info,
-                ),
-            ],
-        ),
+        content=info,
     )
+
 
 def main(page: ft.Page):
     page.title = APP_TITLE
@@ -796,6 +788,8 @@ def main(page: ft.Page):
     page.padding = 0
     page.spacing = 0
     page.scroll = ft.ScrollMode.AUTO
+
+    history_items = []
 
     province_dd = ft.Dropdown(
         value="بغداد",
@@ -856,6 +850,14 @@ def main(page: ft.Page):
         "",
         color=MUTED,
         size=14,
+        text_align=ft.TextAlign.CENTER,
+    )
+
+    page_title = ft.Text(
+        APP_TITLE,
+        color=GREEN,
+        size=25,
+        weight=ft.FontWeight.BOLD,
         text_align=ft.TextAlign.CENTER,
     )
 
@@ -984,6 +986,14 @@ def main(page: ft.Page):
             clear_results()
             page.update()
             return
+
+        history_items.append(
+            {
+                "query": query,
+                "province": province_dd.value,
+                "count": len(hits),
+            }
+        )
 
         status_text.value = (
             f"تم العثور على {len(hits)} نتيجة "
@@ -1532,10 +1542,6 @@ def main(page: ft.Page):
 
         page.update()
 
-    def close_dialog(dialog):
-        dialog.open = False
-        page.update()
-
     def show_instructions(e=None):
         dialog = ft.AlertDialog(
             modal=True,
@@ -1549,11 +1555,7 @@ def main(page: ft.Page):
             content=ft.Container(
                 width=340,
                 content=ft.Text(
-                    "1) اختر المحافظة.\n"
-                    "2) اكتب الاسم أو الرقم أو المعرف.\n"
-                    "3) اضغط بدء البحث الشامل للبحث العام.\n"
-                    "4) استخدم جلب العائلة لإظهار أفراد نفس رقم التموينية.\n"
-                    "5) استخدم جلب السكن لعرض بيانات السكن المتوفرة.",
+                    "اختر المحافظة ثم اكتب الاسم أو الرقم أو المعرف واضغط بدء البحث الشامل.",
                     color=WHITE,
                     size=16,
                     text_align=ft.TextAlign.RIGHT,
@@ -1562,8 +1564,7 @@ def main(page: ft.Page):
             actions=[
                 ft.TextButton(
                     "إغلاق",
-                    on_click=lambda e:
-                    close_dialog(dialog),
+                    on_click=lambda e: close_dialog(dialog),
                     style=ft.ButtonStyle(
                         color=GREEN
                     ),
@@ -1575,13 +1576,190 @@ def main(page: ft.Page):
         dialog.open = True
         page.update()
 
+    def close_dialog(dialog):
+        dialog.open = False
+        page.update()
+
     def open_developer(e=None):
         page.launch_url(
             TELEGRAM_URL
         )
 
-    def close_drawer(e=None):
+    def show_home(e=None):
         drawer.open = False
+        page_title.value = APP_TITLE
+        search_field.hint_text = "الاسم، الرقم، أو المعرف..."
+        search_button_text.value = "بدء البحث الشامل"
+        status_text.value = ""
+        clear_results()
+        page.update()
+
+    def show_history(e=None):
+        drawer.open = False
+        page_title.value = "سجل الأسماء"
+        results_column.controls.clear()
+
+        if not history_items:
+            results_column.controls.append(
+                ft.Container(
+                    padding=30,
+                    border=ft.border.all(
+                        2,
+                        GREEN
+                    ),
+                    border_radius=22,
+                    alignment=ft.alignment.center,
+                    content=ft.Text(
+                        "لا يوجد سجل بحث حالياً.",
+                        color=WHITE,
+                        size=20,
+                        text_align=ft.TextAlign.CENTER,
+                    ),
+                )
+            )
+        else:
+            for index, item in enumerate(
+                reversed(history_items),
+                1
+            ):
+                results_column.controls.append(
+                    ft.Container(
+                        padding=15,
+                        margin=ft.margin.only(
+                            bottom=10
+                        ),
+                        bgcolor="#03191A",
+                        border=ft.border.all(
+                            2,
+                            GREEN
+                        ),
+                        border_radius=20,
+                        content=ft.Column(
+                            spacing=7,
+                            controls=[
+                                ft.Text(
+                                    f"بحث {index}",
+                                    color=CYAN,
+                                    size=19,
+                                    weight=ft.FontWeight.BOLD,
+                                    text_align=ft.TextAlign.RIGHT,
+                                ),
+                                result_line(
+                                    "الاسم أو الرقم",
+                                    item["query"]
+                                ),
+                                result_line(
+                                    "المحافظة",
+                                    item["province"]
+                                ),
+                                result_line(
+                                    "عدد النتائج",
+                                    item["count"]
+                                ),
+                            ],
+                        ),
+                    )
+                )
+
+        status_text.value = (
+            f"عدد عمليات البحث المسجلة: {len(history_items)}"
+        )
+        page.update()
+
+    def show_zain(e=None):
+        drawer.open = False
+        page_title.value = "بحث رقم زين"
+        search_field.hint_text = "أدخل رقم زين..."
+        search_field.value = ""
+        search_button_text.value = "بحث رقم زين"
+        results_column.controls.clear()
+
+        results_column.controls.append(
+            ft.Container(
+                padding=30,
+                border=ft.border.all(
+                    2,
+                    GREEN
+                ),
+                border_radius=22,
+                alignment=ft.alignment.center,
+                content=ft.Column(
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Icon(
+                            ft.Icons.PHONE,
+                            color=GREEN,
+                            size=70,
+                        ),
+                        ft.Text(
+                            "بحث رقم زين",
+                            color=CYAN,
+                            size=24,
+                            weight=ft.FontWeight.BOLD,
+                            text_align=ft.TextAlign.CENTER,
+                        ),
+                        ft.Text(
+                            "ملفات أرقام زين غير مضافة حالياً.",
+                            color=WHITE,
+                            size=17,
+                            text_align=ft.TextAlign.CENTER,
+                        ),
+                    ],
+                ),
+            )
+        )
+
+        status_text.value = "بانتظار إضافة ملفات أرقام زين."
+        page.update()
+
+    def show_asiacell(e=None):
+        drawer.open = False
+        page_title.value = "بحث رقم آسياسيل"
+        search_field.hint_text = "أدخل رقم آسياسيل..."
+        search_field.value = ""
+        search_button_text.value = "بحث رقم آسياسيل"
+        results_column.controls.clear()
+
+        results_column.controls.append(
+            ft.Container(
+                padding=30,
+                border=ft.border.all(
+                    2,
+                    GREEN
+                ),
+                border_radius=22,
+                alignment=ft.alignment.center,
+                content=ft.Column(
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Icon(
+                            ft.Icons.PHONE,
+                            color=GREEN,
+                            size=70,
+                        ),
+                        ft.Text(
+                            "بحث رقم آسياسيل",
+                            color=CYAN,
+                            size=24,
+                            weight=ft.FontWeight.BOLD,
+                            text_align=ft.TextAlign.CENTER,
+                        ),
+                        ft.Text(
+                            "ملفات أرقام آسياسيل غير مضافة حالياً.",
+                            color=WHITE,
+                            size=17,
+                            text_align=ft.TextAlign.CENTER,
+                        ),
+                    ],
+                ),
+            )
+        )
+
+        status_text.value = "بانتظار إضافة ملفات أرقام آسياسيل."
+        page.update()
+
+    def open_drawer(e=None):
+        drawer.open = True
         page.update()
 
     drawer = ft.NavigationDrawer(
@@ -1590,12 +1768,12 @@ def main(page: ft.Page):
             ft.Container(
                 padding=20,
                 content=ft.Column(
-                    spacing=14,
+                    spacing=12,
                     controls=[
                         ft.Text(
                             APP_TITLE,
                             color=GREEN,
-                            size=20,
+                            size=23,
                             weight=ft.FontWeight.BOLD,
                             text_align=ft.TextAlign.RIGHT,
                         ),
@@ -1604,29 +1782,71 @@ def main(page: ft.Page):
                         ),
                         ft.ListTile(
                             leading=ft.Icon(
-                                ft.Icons.CODE,
+                                ft.Icons.HOME,
                                 color=GREEN
                             ),
                             title=ft.Text(
-                                "المطور",
+                                "الرئيسية",
                                 color=WHITE,
-                                size=17,
+                                size=18,
                                 text_align=ft.TextAlign.RIGHT
                             ),
-                            on_click=open_developer,
+                            on_click=show_home,
                         ),
                         ft.ListTile(
                             leading=ft.Icon(
-                                ft.Icons.INFO_OUTLINE,
+                                ft.Icons.HISTORY,
                                 color=GREEN
                             ),
                             title=ft.Text(
-                                "تعليمات",
+                                "سجل الأسماء",
                                 color=WHITE,
-                                size=17,
+                                size=18,
                                 text_align=ft.TextAlign.RIGHT
                             ),
-                            on_click=show_instructions,
+                            on_click=show_history,
+                        ),
+                        ft.ListTile(
+                            leading=ft.Icon(
+                                ft.Icons.PHONE,
+                                color=GREEN
+                            ),
+                            title=ft.Text(
+                                "بحث رقم زين",
+                                color=WHITE,
+                                size=18,
+                                text_align=ft.TextAlign.RIGHT
+                            ),
+                            on_click=show_zain,
+                        ),
+                        ft.ListTile(
+                            leading=ft.Icon(
+                                ft.Icons.PHONE,
+                                color=GREEN
+                            ),
+                            title=ft.Text(
+                                "بحث رقم آسياسيل",
+                                color=WHITE,
+                                size=18,
+                                text_align=ft.TextAlign.RIGHT
+                            ),
+                            on_click=show_asiacell,
+                        ),
+                        ft.Divider(
+                            color="#00FF7F55"
+                        ),
+                        ft.ListTile(
+                            leading=ft.Icon(
+                                ft.Icons.SEND,
+                                color="#29A9EA"
+                            ),
+                            title=ft.Text(
+                                "التليكرام",
+                                color=WHITE,
+                                size=18,
+                                text_align=ft.TextAlign.RIGHT
+                            ),
+                            on_click=open_developer,
                         ),
                     ],
                 ),
@@ -1636,16 +1856,19 @@ def main(page: ft.Page):
 
     page.drawer = drawer
 
-    def open_drawer(e=None):
-        drawer.open = True
-        page.update()
-
     menu_button = ft.IconButton(
         icon=ft.Icons.MENU,
         icon_color=WHITE,
         icon_size=34,
         tooltip="القائمة",
         on_click=open_drawer,
+    )
+
+    search_button_text = ft.Text(
+        "بدء البحث الشامل",
+        color="#00110A",
+        size=23,
+        weight=ft.FontWeight.BOLD,
     )
 
     header = ft.Container(
@@ -1669,13 +1892,7 @@ def main(page: ft.Page):
                             color=GREEN,
                             size=42,
                         ),
-                        ft.Text(
-                            APP_TITLE,
-                            color=GREEN,
-                            size=25,
-                            weight=ft.FontWeight.BOLD,
-                            text_align=ft.TextAlign.CENTER,
-                        ),
+                        page_title,
                     ],
                 ),
                 ft.Icon(
@@ -1697,12 +1914,7 @@ def main(page: ft.Page):
                     color="#00110A",
                     size=30
                 ),
-                ft.Text(
-                    "بدء البحث الشامل",
-                    color="#00110A",
-                    size=23,
-                    weight=ft.FontWeight.BOLD,
-                ),
+                search_button_text,
             ],
         ),
         style=ft.ButtonStyle(
@@ -1718,116 +1930,6 @@ def main(page: ft.Page):
         ),
         on_click=start_search,
         width=650,
-    )
-
-    family_button = ft.ElevatedButton(
-        text="جلب العائلة",
-        style=ft.ButtonStyle(
-            bgcolor="#073A28",
-            color=WHITE,
-            side=ft.BorderSide(
-                2,
-                GREEN
-            ),
-            shape=ft.RoundedRectangleBorder(
-                radius=18
-            ),
-            padding=ft.padding.symmetric(
-                vertical=14,
-                horizontal=24
-            ),
-        ),
-        on_click=fetch_family,
-        expand=True,
-    )
-
-    housing_button = ft.ElevatedButton(
-        text="جلب السكن",
-        style=ft.ButtonStyle(
-            bgcolor="#073A28",
-            color=WHITE,
-            side=ft.BorderSide(
-                2,
-                GREEN
-            ),
-            shape=ft.RoundedRectangleBorder(
-                radius=18
-            ),
-            padding=ft.padding.symmetric(
-                vertical=14,
-                horizontal=24
-            ),
-        ),
-        on_click=fetch_housing,
-        expand=True,
-    )
-
-    instructions_button = ft.OutlinedButton(
-        content=ft.Row(
-            alignment=ft.MainAxisAlignment.CENTER,
-            controls=[
-                ft.Icon(
-                    ft.Icons.INFO,
-                    color=WHITE,
-                    size=25
-                ),
-                ft.Text(
-                    "تعليمات",
-                    color=WHITE,
-                    size=18,
-                    weight=ft.FontWeight.BOLD,
-                ),
-            ],
-        ),
-        style=ft.ButtonStyle(
-            side=ft.BorderSide(
-                2,
-                GREEN
-            ),
-            shape=ft.RoundedRectangleBorder(
-                radius=18
-            ),
-            padding=ft.padding.symmetric(
-                vertical=13,
-                horizontal=18
-            ),
-        ),
-        on_click=show_instructions,
-        expand=True,
-    )
-
-    developer_button = ft.OutlinedButton(
-        content=ft.Row(
-            alignment=ft.MainAxisAlignment.CENTER,
-            controls=[
-                ft.Icon(
-                    ft.Icons.CODE,
-                    color=WHITE,
-                    size=25
-                ),
-                ft.Text(
-                    "المطور",
-                    color=WHITE,
-                    size=18,
-                    weight=ft.FontWeight.BOLD,
-                ),
-            ],
-        ),
-        style=ft.ButtonStyle(
-            side=ft.BorderSide(
-                2,
-                GREEN
-            ),
-            shape=ft.RoundedRectangleBorder(
-                radius=18
-            ),
-            padding=ft.padding.symmetric(
-                vertical=13,
-                horizontal=18
-            ),
-        ),
-        on_click=open_developer,
-        expand=True,
     )
 
     panel = ft.Container(
@@ -1872,22 +1974,8 @@ def main(page: ft.Page):
                 ),
                 search_field,
                 search_button,
-                ft.Row(
-                    spacing=14,
-                    controls=[
-                        instructions_button,
-                        developer_button,
-                    ],
-                ),
-                ft.Row(
-                    spacing=14,
-                    controls=[
-                        family_button,
-                        housing_button,
-                    ],
-                ),
                 ft.Text(
-                    "اضغط على زر المطور للتواصل",
+                    "اضغط على زر ☰ لفتح القائمة",
                     color="#8EA1A1",
                     size=16,
                     italic=True,
@@ -1938,6 +2026,7 @@ def main(page: ft.Page):
     )
 
     page.add(content)
+
 
 if __name__ == "__main__":
     ft.run(
