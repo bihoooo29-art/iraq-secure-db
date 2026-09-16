@@ -26,8 +26,21 @@ ASSETS_DIR = Path(
 ).resolve()
 
 
-DB_DIR = Path.home() / ".iraq_secure_db_cache"
-DB_DIR.mkdir(parents=True, exist_ok=True)
+# =========================
+# تخزين قواعد البيانات
+# =========================
+
+DB_DIR = Path(
+    os.environ.get(
+        "FLET_APP_STORAGE_CACHE",
+        str(Path.home() / ".iraq_secure_db_cache")
+    )
+)
+
+DB_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
 
 
 # bg.jpg = صورة النتائج فقط
@@ -2157,33 +2170,14 @@ def main(page: ft.Page):
 
     # =========================
     # الخلفية الرئيسية
-    # لا يوجد ui_background.png
     # =========================
 
-    background = ft.Container(
-        bgcolor=BG,
-        expand=True,
-    )
-
-
-    content = ft.Stack(
-        expand=True,
-
+    content = ft.Column(
+        spacing=0,
+        scroll=ft.ScrollMode.AUTO,
         controls=[
-            ft.Container(
-                content=background,
-                expand=True,
-            ),
-
-            ft.Column(
-                spacing=0,
-                scroll=ft.ScrollMode.AUTO,
-
-                controls=[
-                    header,
-                    panel,
-                ],
-            ),
+            header,
+            panel,
         ],
     )
 
