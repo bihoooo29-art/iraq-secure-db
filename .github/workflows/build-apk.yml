@@ -9,11 +9,6 @@ on:
 permissions:
   contents: read
 
-env:
-  UV_PYTHON: "3.14"
-  PYTHONUTF8: "1"
-  FLET_CLI_NO_RICH_OUTPUT: "1"
-
 jobs:
   build:
     name: Build APK
@@ -26,15 +21,20 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
         with:
+          version: latest
           python-version: "3.14"
+
+      - name: Create Python environment
+        run: |
+          uv venv --python 3.14 .venv
 
       - name: Install Flet
         run: |
-          uv pip install --system "flet[all]"
+          uv pip install --python .venv/bin/python "flet[all]"
 
       - name: Build APK
         run: |
-          flet build apk \
+          .venv/bin/flet build apk \
             --python-version 3.14 \
             --build-number ${{ github.run_number }} \
             --yes
