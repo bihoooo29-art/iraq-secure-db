@@ -21,6 +21,7 @@ jobs:
       - name: Prepare assets
         run: |
           cp bg.jpg assets/bg.jpg
+          cp menu_background.png assets/menu_background.png
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
