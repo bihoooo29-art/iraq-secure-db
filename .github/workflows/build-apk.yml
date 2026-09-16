@@ -23,15 +23,43 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p assets/databases
+
           gh release download 1.0.0 \
             --repo "${{ github.repository }}" \
             --pattern "*.db" \
             --dir assets/databases
 
-      - name: Check databases
+      - name: Verify databases
         run: |
-          echo "Database files:"
-          find assets/databases -maxdepth 1 -type f -name "*.db" -printf "%f\n" | sort
+          required=(
+            "alanbar.db"
+            "babylon.db"
+            "baghdad.db"
+            "basrah.db"
+            "dhiqar.db"
+            "diyala.db"
+            "duhok.db"
+            "erbil.db"
+            "karbalaa.db"
+            "kirkuk.db"
+            "mesan.db"
+            "muthana.db"
+            "najaf.db"
+            "nineveh.db"
+            "qadisiyah.db"
+            "salahaldeen.db"
+            "sulaymaniyah.db"
+            "wasit.db"
+          )
+
+          for file in "${required[@]}"; do
+            if [ ! -f "assets/databases/$file" ]; then
+              echo "ERROR: Missing database: $file"
+              exit 1
+            fi
+          done
+
+          echo "All 18 province databases are present."
 
       - name: Build Flet APK
         id: build
