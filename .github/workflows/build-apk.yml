@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_PYTHON: "3.14"
+  PYTHONUTF8: "1"
+  FLET_CLI_NO_RICH_OUTPUT: "1"
+
 jobs:
   build:
     name: Build APK
@@ -18,19 +23,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Build Flet APK
-        id: build
-        uses: flet-dev/flet-build-action@v1
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
         with:
-          target: apk
-          runner-python-version: "3.14"
-          bundled-python-version: "3.14"
-          build-number: ${{ github.run_number }}
+          python-version: "3.14"
+
+      - name: Install Flet
+        run: |
+          uv pip install --system "flet[all]"
+
+      - name: Build APK
+        run: |
+          flet build apk \
+            --python-version 3.14 \
+            --build-number ${{ github.run_number }} \
+            --yes
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
           name: iraq-data-app-apk
-          path: ${{ steps.build.outputs.archive-path }}
+          path: build/apk/*.apk
           if-no-files-found: error
           overwrite: true
