@@ -8,6 +8,7 @@ from datetime import date
 
 import flet as ft
 
+
 APP_TITLE = "منظومة بيانات العراق"
 TELEGRAM_URL = "https://t.me/UB_515"
 
@@ -19,21 +20,29 @@ FIELD = "#041E20"
 WHITE = "#F7FFF9"
 MUTED = "#9BB0B0"
 
+
 ASSETS_DIR = Path(
     os.environ.get("FLET_ASSETS_DIR", "assets")
 ).resolve()
 
+
 DB_DIR = Path.home() / ".iraq_secure_db_cache"
 DB_DIR.mkdir(parents=True, exist_ok=True)
 
+
+# bg.jpg = صورة النتائج فقط
 JOKER_IMAGE = ASSETS_DIR / "bg.jpg"
-UI_BACKGROUND = ASSETS_DIR / "ui_background.png"
+
+# menu_background.png = خلفية القائمة فقط
+MENU_BACKGROUND = ASSETS_DIR / "menu_background.png"
+
 
 GITHUB_RELEASE_URL = (
     "https://github.com/"
     "bihoooo29-art/iraq-secure-db/"
     "releases/latest/download"
 )
+
 
 PROVINCES = [
     ("الأنبار", "alanbar.db"),
@@ -57,7 +66,9 @@ PROVINCES = [
     ("واسط", "wasit.db"),
 ]
 
+
 PROVINCE_FILES = dict(PROVINCES)
+
 
 ALIASES = {
     "family": [
@@ -395,6 +406,7 @@ def search_database(db_path, query, max_hits=30):
                     where_parts.append(
                         f"CAST({quote_ident(column)} AS TEXT) LIKE ?"
                     )
+
                     params.append(
                         f"%{search_value}%"
                     )
@@ -863,6 +875,7 @@ def main(page: ft.Page):
 
     async def selected_db():
         province = province_dd.value
+
         filename = get_db_filename(
             province
         )
@@ -884,6 +897,7 @@ def main(page: ft.Page):
         status_text.value = (
             f"جارِ تنزيل {filename} من السحابة..."
         )
+
         page.update()
 
         db_path = await find_db_for_province(
@@ -915,6 +929,7 @@ def main(page: ft.Page):
                     ),
                 )
             )
+
         else:
             results_column.controls.append(
                 ft.Container(
@@ -942,13 +957,16 @@ def main(page: ft.Page):
             status_text.value = (
                 "اكتب كلمة البحث أولاً."
             )
+
             page.update()
             return
 
         status_text.value = (
             "جاري تجهيز قاعدة البيانات..."
         )
+
         results_column.controls.clear()
+
         page.update()
 
         db_path = await selected_db()
@@ -962,6 +980,7 @@ def main(page: ft.Page):
                 f"تعذر تنزيل ملف قاعدة البيانات: "
                 f"{filename}"
             )
+
             page.update()
             return
 
@@ -983,7 +1002,9 @@ def main(page: ft.Page):
                 f"لم يتم العثور على نتائج داخل "
                 f"{db_path.name}."
             )
+
             clear_results()
+
             page.update()
             return
 
@@ -1024,13 +1045,16 @@ def main(page: ft.Page):
             status_text.value = (
                 "اكتب رقم التموينية أو اسم أحد أفراد العائلة أولاً."
             )
+
             page.update()
             return
 
         status_text.value = (
             "جاري تجهيز قاعدة البيانات..."
         )
+
         results_column.controls.clear()
+
         page.update()
 
         db_path = await selected_db()
@@ -1044,6 +1068,7 @@ def main(page: ft.Page):
                 f"تعذر تنزيل قاعدة البيانات: "
                 f"{filename}"
             )
+
             page.update()
             return
 
@@ -1064,6 +1089,7 @@ def main(page: ft.Page):
             status_text.value = (
                 "لم يتم العثور على الشخص أو رقم التموينية."
             )
+
             page.update()
             return
 
@@ -1085,6 +1111,7 @@ def main(page: ft.Page):
                 "تم العثور على النتيجة، "
                 "لكن لم أستطع تحديد رقم التموينية."
             )
+
             page.update()
             return
 
@@ -1101,6 +1128,7 @@ def main(page: ft.Page):
                 f"رقم التموينية {family_number} موجود، "
                 "لكن لم أجد بقية أفراد العائلة."
             )
+
             page.update()
             return
 
@@ -1343,6 +1371,7 @@ def main(page: ft.Page):
                     expand=True,
                 ),
             )
+
         else:
             joker_background = ft.Container(
                 expand=True,
@@ -1397,13 +1426,16 @@ def main(page: ft.Page):
             status_text.value = (
                 "اكتب كلمة البحث أولاً."
             )
+
             page.update()
             return
 
         status_text.value = (
             "جاري تجهيز قاعدة البيانات..."
         )
+
         results_column.controls.clear()
+
         page.update()
 
         db_path = await selected_db()
@@ -1417,6 +1449,7 @@ def main(page: ft.Page):
                 f"تعذر تنزيل قاعدة البيانات: "
                 f"{filename}"
             )
+
             page.update()
             return
 
@@ -1437,6 +1470,7 @@ def main(page: ft.Page):
             status_text.value = (
                 "لم يتم العثور على بيانات سكن."
             )
+
             page.update()
             return
 
@@ -1587,16 +1621,28 @@ def main(page: ft.Page):
 
     def show_home(e=None):
         drawer.open = False
+
         page_title.value = APP_TITLE
-        search_field.hint_text = "الاسم، الرقم، أو المعرف..."
-        search_button_text.value = "بدء البحث الشامل"
+
+        search_field.hint_text = (
+            "الاسم، الرقم، أو المعرف..."
+        )
+
+        search_button_text.value = (
+            "بدء البحث الشامل"
+        )
+
         status_text.value = ""
+
         clear_results()
+
         page.update()
 
     def show_history(e=None):
         drawer.open = False
+
         page_title.value = "سجل الأسماء"
+
         results_column.controls.clear()
 
         if not history_items:
@@ -1617,6 +1663,7 @@ def main(page: ft.Page):
                     ),
                 )
             )
+
         else:
             for index, item in enumerate(
                 reversed(history_items),
@@ -1662,16 +1709,27 @@ def main(page: ft.Page):
                 )
 
         status_text.value = (
-            f"عدد عمليات البحث المسجلة: {len(history_items)}"
+            f"عدد عمليات البحث المسجلة: "
+            f"{len(history_items)}"
         )
+
         page.update()
 
     def show_zain(e=None):
         drawer.open = False
+
         page_title.value = "بحث رقم زين"
-        search_field.hint_text = "أدخل رقم زين..."
+
+        search_field.hint_text = (
+            "أدخل رقم زين..."
+        )
+
         search_field.value = ""
-        search_button_text.value = "بحث رقم زين"
+
+        search_button_text.value = (
+            "بحث رقم زين"
+        )
+
         results_column.controls.clear()
 
         results_column.controls.append(
@@ -1709,15 +1767,27 @@ def main(page: ft.Page):
             )
         )
 
-        status_text.value = "بانتظار إضافة ملفات أرقام زين."
+        status_text.value = (
+            "بانتظار إضافة ملفات أرقام زين."
+        )
+
         page.update()
 
     def show_asiacell(e=None):
         drawer.open = False
+
         page_title.value = "بحث رقم آسياسيل"
-        search_field.hint_text = "أدخل رقم آسياسيل..."
+
+        search_field.hint_text = (
+            "أدخل رقم آسياسيل..."
+        )
+
         search_field.value = ""
-        search_button_text.value = "بحث رقم آسياسيل"
+
+        search_button_text.value = (
+            "بحث رقم آسياسيل"
+        )
+
         results_column.controls.clear()
 
         results_column.controls.append(
@@ -1755,106 +1825,166 @@ def main(page: ft.Page):
             )
         )
 
-        status_text.value = "بانتظار إضافة ملفات أرقام آسياسيل."
+        status_text.value = (
+            "بانتظار إضافة ملفات أرقام آسياسيل."
+        )
+
         page.update()
 
     def open_drawer(e=None):
         drawer.open = True
         page.update()
 
+
+    # =========================
+    # القائمة الجانبية ☰
+    # =========================
+
+    if MENU_BACKGROUND.exists():
+
+        menu_background = ft.Image(
+            src="menu_background.png",
+            fit=ft.ImageFit.COVER,
+            expand=True,
+        )
+
+        menu_overlay = ft.Container(
+            expand=True,
+            bgcolor="#020D10CC",
+        )
+
+    else:
+
+        menu_background = ft.Container(
+            expand=True,
+            bgcolor="#031313",
+        )
+
+        menu_overlay = ft.Container(
+            expand=True,
+            bgcolor="#020D10AA",
+        )
+
+
+    menu_items = ft.Column(
+        spacing=12,
+        controls=[
+            ft.Text(
+                APP_TITLE,
+                color=GREEN,
+                size=23,
+                weight=ft.FontWeight.BOLD,
+                text_align=ft.TextAlign.RIGHT,
+            ),
+
+            ft.Divider(
+                color=GREEN
+            ),
+
+            ft.ListTile(
+                leading=ft.Icon(
+                    ft.Icons.HOME,
+                    color=GREEN
+                ),
+                title=ft.Text(
+                    "الرئيسية",
+                    color=WHITE,
+                    size=18,
+                    text_align=ft.TextAlign.RIGHT
+                ),
+                on_click=show_home,
+            ),
+
+            ft.ListTile(
+                leading=ft.Icon(
+                    ft.Icons.HISTORY,
+                    color=GREEN
+                ),
+                title=ft.Text(
+                    "سجل الأسماء",
+                    color=WHITE,
+                    size=18,
+                    text_align=ft.TextAlign.RIGHT
+                ),
+                on_click=show_history,
+            ),
+
+            ft.ListTile(
+                leading=ft.Icon(
+                    ft.Icons.PHONE,
+                    color=GREEN
+                ),
+                title=ft.Text(
+                    "بحث رقم زين",
+                    color=WHITE,
+                    size=18,
+                    text_align=ft.TextAlign.RIGHT
+                ),
+                on_click=show_zain,
+            ),
+
+            ft.ListTile(
+                leading=ft.Icon(
+                    ft.Icons.PHONE,
+                    color=GREEN
+                ),
+                title=ft.Text(
+                    "بحث رقم آسياسيل",
+                    color=WHITE,
+                    size=18,
+                    text_align=ft.TextAlign.RIGHT
+                ),
+                on_click=show_asiacell,
+            ),
+
+            ft.Divider(
+                color="#00FF7F55"
+            ),
+
+            ft.ListTile(
+                leading=ft.Icon(
+                    ft.Icons.SEND,
+                    color="#29A9EA"
+                ),
+                title=ft.Text(
+                    "المطور",
+                    color=WHITE,
+                    size=18,
+                    text_align=ft.TextAlign.RIGHT
+                ),
+                on_click=open_developer,
+            ),
+        ],
+    )
+
+
+    drawer_content = ft.Stack(
+        expand=True,
+        controls=[
+            menu_background,
+            menu_overlay,
+            ft.Container(
+                padding=20,
+                content=menu_items,
+                expand=True,
+            ),
+        ],
+    )
+
+
     drawer = ft.NavigationDrawer(
         bgcolor="#031313",
         controls=[
             ft.Container(
-                padding=20,
-                content=ft.Column(
-                    spacing=12,
-                    controls=[
-                        ft.Text(
-                            APP_TITLE,
-                            color=GREEN,
-                            size=23,
-                            weight=ft.FontWeight.BOLD,
-                            text_align=ft.TextAlign.RIGHT,
-                        ),
-                        ft.Divider(
-                            color=GREEN
-                        ),
-                        ft.ListTile(
-                            leading=ft.Icon(
-                                ft.Icons.HOME,
-                                color=GREEN
-                            ),
-                            title=ft.Text(
-                                "الرئيسية",
-                                color=WHITE,
-                                size=18,
-                                text_align=ft.TextAlign.RIGHT
-                            ),
-                            on_click=show_home,
-                        ),
-                        ft.ListTile(
-                            leading=ft.Icon(
-                                ft.Icons.HISTORY,
-                                color=GREEN
-                            ),
-                            title=ft.Text(
-                                "سجل الأسماء",
-                                color=WHITE,
-                                size=18,
-                                text_align=ft.TextAlign.RIGHT
-                            ),
-                            on_click=show_history,
-                        ),
-                        ft.ListTile(
-                            leading=ft.Icon(
-                                ft.Icons.PHONE,
-                                color=GREEN
-                            ),
-                            title=ft.Text(
-                                "بحث رقم زين",
-                                color=WHITE,
-                                size=18,
-                                text_align=ft.TextAlign.RIGHT
-                            ),
-                            on_click=show_zain,
-                        ),
-                        ft.ListTile(
-                            leading=ft.Icon(
-                                ft.Icons.PHONE,
-                                color=GREEN
-                            ),
-                            title=ft.Text(
-                                "بحث رقم آسياسيل",
-                                color=WHITE,
-                                size=18,
-                                text_align=ft.TextAlign.RIGHT
-                            ),
-                            on_click=show_asiacell,
-                        ),
-                        ft.Divider(
-                            color="#00FF7F55"
-                        ),
-                        ft.ListTile(
-                            leading=ft.Icon(
-                                ft.Icons.SEND,
-                                color="#29A9EA"
-                            ),
-                            title=ft.Text(
-                                "التليكرام",
-                                color=WHITE,
-                                size=18,
-                                text_align=ft.TextAlign.RIGHT
-                            ),
-                            on_click=open_developer,
-                        ),
-                    ],
-                ),
+                expand=True,
+                content=drawer_content,
             )
         ],
     )
 
+
     page.drawer = drawer
+
 
     menu_button = ft.IconButton(
         icon=ft.Icons.MENU,
@@ -1864,12 +1994,14 @@ def main(page: ft.Page):
         on_click=open_drawer,
     )
 
+
     search_button_text = ft.Text(
         "بدء البحث الشامل",
         color="#00110A",
         size=23,
         weight=ft.FontWeight.BOLD,
     )
+
 
     header = ft.Container(
         padding=ft.padding.only(
@@ -1883,6 +2015,7 @@ def main(page: ft.Page):
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
                 menu_button,
+
                 ft.Row(
                     spacing=10,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -1892,9 +2025,11 @@ def main(page: ft.Page):
                             color=GREEN,
                             size=42,
                         ),
+
                         page_title,
                     ],
                 ),
+
                 ft.Icon(
                     ft.Icons.SEARCH,
                     color=WHITE,
@@ -1903,6 +2038,7 @@ def main(page: ft.Page):
             ],
         ),
     )
+
 
     search_button = ft.ElevatedButton(
         content=ft.Row(
@@ -1914,48 +2050,61 @@ def main(page: ft.Page):
                     color="#00110A",
                     size=30
                 ),
+
                 search_button_text,
             ],
         ),
+
         style=ft.ButtonStyle(
             bgcolor=GREEN,
             color="#00110A",
+
             shape=ft.RoundedRectangleBorder(
                 radius=20
             ),
+
             padding=ft.padding.symmetric(
                 vertical=18,
                 horizontal=20
             ),
         ),
+
         on_click=start_search,
         width=650,
     )
+
 
     panel = ft.Container(
         margin=ft.margin.symmetric(
             horizontal=14,
             vertical=10
         ),
+
         padding=ft.padding.symmetric(
             horizontal=20,
             vertical=24
         ),
+
         bgcolor="#021619",
+
         border=ft.border.all(
             2,
             GREEN
         ),
+
         border_radius=30,
+
         shadow=ft.BoxShadow(
             blur_radius=24,
             spread_radius=2,
             color="#003E28",
             offset=ft.Offset(0, 0),
         ),
+
         content=ft.Column(
             spacing=14,
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+
             controls=[
                 ft.Text(
                     "اختر المحافظة المستهدفة",
@@ -1964,7 +2113,9 @@ def main(page: ft.Page):
                     weight=ft.FontWeight.BOLD,
                     text_align=ft.TextAlign.RIGHT,
                 ),
+
                 province_dd,
+
                 ft.Text(
                     "كلمة البحث",
                     color=GREEN,
@@ -1972,8 +2123,11 @@ def main(page: ft.Page):
                     weight=ft.FontWeight.BOLD,
                     text_align=ft.TextAlign.RIGHT,
                 ),
+
                 search_field,
+
                 search_button,
+
                 ft.Text(
                     "اضغط على زر ☰ لفتح القائمة",
                     color="#8EA1A1",
@@ -1981,42 +2135,50 @@ def main(page: ft.Page):
                     italic=True,
                     text_align=ft.TextAlign.CENTER,
                 ),
+
                 ft.Divider(
                     height=20,
                     thickness=1,
                     color=GREEN,
                 ),
+
                 results_title,
+
                 status_text,
+
                 results_column,
             ],
         ),
     )
 
+
     clear_results()
 
-    if UI_BACKGROUND.exists():
-        background = ft.Image(
-            src="ui_background.png",
-            fit=ft.ImageFit.COVER,
-            expand=True,
-        )
-    else:
-        background = ft.Container(
-            bgcolor=BG,
-            expand=True,
-        )
+
+    # =========================
+    # الخلفية الرئيسية
+    # لا يوجد ui_background.png
+    # =========================
+
+    background = ft.Container(
+        bgcolor=BG,
+        expand=True,
+    )
+
 
     content = ft.Stack(
         expand=True,
+
         controls=[
             ft.Container(
                 content=background,
                 expand=True,
             ),
+
             ft.Column(
                 spacing=0,
                 scroll=ft.ScrollMode.AUTO,
+
                 controls=[
                     header,
                     panel,
@@ -2024,6 +2186,7 @@ def main(page: ft.Page):
             ),
         ],
     )
+
 
     page.add(content)
 
