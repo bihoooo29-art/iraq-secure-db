@@ -18,6 +18,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Prepare assets
+        run: |
+          cp bg.jpg assets/bg.jpg
+
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
         with:
